@@ -10,11 +10,10 @@ interface Student {
   groupClasses: number;
 }
 
-const HOUR_RATE = 20; // Valor fixo por hora
-const GROUP_DISCOUNT = 0.7; // 70% do valor para aulas coletivas
-
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [hourRate, setHourRate] = useState(20); // Valor inicial por hora
+  const [groupDiscount, setGroupDiscount] = useState(0.7); // Desconto inicial para aulas coletivas
   const [newStudent, setNewStudent] = useState<Student>({
     id: '',
     name: '',
@@ -45,13 +44,27 @@ const Index = () => {
   };
 
   const calculateTotal = (student: Student) => {
-    const individualTotal = student.individualClasses * HOUR_RATE;
-    const groupTotal = student.groupClasses * HOUR_RATE * GROUP_DISCOUNT;
+    const individualTotal = student.individualClasses * hourRate;
+    const groupTotal = student.groupClasses * hourRate * groupDiscount;
     return individualTotal + groupTotal;
   };
 
   const calculateGrandTotal = () => {
     return students.reduce((total, student) => total + calculateTotal(student), 0);
+  };
+
+  const handleHourRateChange = (value: string) => {
+    const newRate = parseFloat(value);
+    if (!isNaN(newRate) && newRate > 0) {
+      setHourRate(newRate);
+    }
+  };
+
+  const handleGroupDiscountChange = (value: string) => {
+    const newDiscount = parseFloat(value);
+    if (!isNaN(newDiscount) && newDiscount > 0 && newDiscount <= 1) {
+      setGroupDiscount(newDiscount);
+    }
   };
 
   return (
@@ -75,10 +88,39 @@ const Index = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-indigo-600 text-center mt-4 bg-white/50 backdrop-blur-sm rounded-lg p-4 shadow-sm"
+            className="text-indigo-600 mt-4 bg-white/50 backdrop-blur-sm rounded-lg p-6 shadow-sm"
           >
-            <p className="text-lg mb-2">Valor por Hora: {HOUR_RATE.toFixed(2)}€</p>
-            <p className="text-sm">Aulas Coletivas: {(HOUR_RATE * GROUP_DISCOUNT).toFixed(2)}€</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-indigo-700">Valor por Hora (Individual)</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={hourRate}
+                    onChange={(e) => handleHourRateChange(e.target.value)}
+                    className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
+                  />
+                  <span className="ml-2">€</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-indigo-700">Desconto Aulas Coletivas (%)</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={Math.round((1 - groupDiscount) * 100)}
+                    onChange={(e) => handleGroupDiscountChange((100 - Number(e.target.value)) / 100)}
+                    min="0"
+                    max="100"
+                    className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
+                  />
+                  <span className="ml-2">%</span>
+                </div>
+                <p className="text-sm text-indigo-600">
+                  Valor Aula Coletiva: {(hourRate * groupDiscount).toFixed(2)}€
+                </p>
+              </div>
+            </div>
           </motion.div>
         </div>
 
