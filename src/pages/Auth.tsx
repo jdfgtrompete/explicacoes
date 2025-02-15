@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -15,8 +16,27 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validatePassword = (password: string) => {
+    if (password.length < 6) {
+      return "A senha deve ter pelo menos 6 caracteres";
+    }
+    return null;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      toast({
+        title: "Erro de validação",
+        description: passwordError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -61,6 +81,14 @@ const Auth = () => {
           {isSignUp ? 'Criar Conta' : 'Entrar'}
         </h1>
         
+        {isSignUp && (
+          <Alert className="mb-6">
+            <AlertDescription>
+              A senha deve ter pelo menos 6 caracteres.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -85,6 +113,7 @@ const Auth = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="********"
+              minLength={6}
             />
           </div>
 
