@@ -41,7 +41,7 @@ const Auth = () => {
 
     try {
       // Convert username to a fake email format that Supabase accepts
-      const email = `${username.toLowerCase()}@user.local`;
+      const email = `${username.toLowerCase()}@example.com`;
 
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
