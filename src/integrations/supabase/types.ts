@@ -16,6 +16,7 @@ export type Database = {
           individual_classes: number | null
           month: string
           student_id: string | null
+          user_id: string | null
         }
         Insert: {
           group_classes?: number | null
@@ -23,6 +24,7 @@ export type Database = {
           individual_classes?: number | null
           month: string
           student_id?: string | null
+          user_id?: string | null
         }
         Update: {
           group_classes?: number | null
@@ -30,6 +32,7 @@ export type Database = {
           individual_classes?: number | null
           month?: string
           student_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -41,18 +44,39 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           id: string
           name: string
+          user_id: string | null
         }
         Insert: {
           id?: string
           name: string
+          user_id?: string | null
         }
         Update: {
           id?: string
           name?: string
+          user_id?: string | null
         }
         Relationships: []
       }

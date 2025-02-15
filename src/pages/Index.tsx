@@ -5,10 +5,14 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
 
 interface Student {
   id: string;
   name: string;
+  user_id: string;
 }
 
 interface MonthlyRecord {
@@ -17,9 +21,12 @@ interface MonthlyRecord {
   individual_classes: number;
   group_classes: number;
   month: string;
+  user_id: string;
 }
 
 const Index = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
@@ -30,17 +37,28 @@ const Index = () => {
     return format(new Date(), 'yyyy-MM');
   });
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   const fetchData = async () => {
     try {
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('*');
+        .select('*')
+        .eq('user_id', user?.id);
 
       if (studentsError) throw studentsError;
 
       const { data: recordsData, error: recordsError } = await supabase
         .from('monthly_records')
-        .select('*');
+        .select('*')
+        .eq('user_id', user?.id);
 
       if (recordsError) throw recordsError;
 
@@ -65,7 +83,10 @@ const Index = () => {
       try {
         const { data, error } = await supabase
           .from('students')
-          .insert([{ name: newStudentName.trim() }])
+          .insert([{ 
+            name: newStudentName.trim(),
+            user_id: user?.id
+          }])
           .select()
           .single();
 
@@ -121,7 +142,8 @@ const Index = () => {
         student_id: studentId,
         individual_classes: 0,
         group_classes: 0,
-        month: currentMonth
+        month: currentMonth,
+        user_id: user?.id
       }
     );
   };
@@ -136,7 +158,8 @@ const Index = () => {
         student_id: studentId,
         individual_classes: type === 'individual' ? value : getStudentRecord(studentId).individual_classes,
         group_classes: type === 'group' ? value : getStudentRecord(studentId).group_classes,
-        month: currentMonth
+        month: currentMonth,
+        user_id: user?.id
       };
 
       if (existingRecord) {
@@ -202,12 +225,22 @@ const Index = () => {
               <CalendarIcon className="w-8 h-8" />
               Gestor de Explicações
             </h1>
-            <input
-              type="month"
-              value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
-              className="px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-indigo-600">{user?.email}</span>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                title="Sair"
+              >
+                <LogOut size={20} />
+              </button>
+              <input
+                type="month"
+                value={currentMonth}
+                onChange={(e) => setCurrentMonth(e.target.value)}
+                className="px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
           </motion.div>
 
           <motion.div
