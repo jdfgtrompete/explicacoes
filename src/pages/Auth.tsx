@@ -23,9 +23,31 @@ const Auth = () => {
     return null;
   };
 
+  const validateUsername = (username: string) => {
+    if (username.length < 3) {
+      return "O nome de utilizador deve ter pelo menos 3 caracteres";
+    }
+    // Only allow letters, numbers, and underscores
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return "O nome de utilizador só pode conter letras, números e underscores";
+    }
+    return null;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate username
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      toast({
+        title: "Erro de validação",
+        description: usernameError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate password
     const passwordError = validatePassword(password);
     if (passwordError) {
@@ -40,8 +62,9 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      // Convert username to a fake email format that Supabase accepts
-      const email = `${username.toLowerCase()}@example.com`;
+      // Convert username to a valid email format
+      const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const email = `${sanitizedUsername}@temporary.user`;
 
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
@@ -88,6 +111,7 @@ const Auth = () => {
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
+              O nome de utilizador deve ter pelo menos 3 caracteres e só pode conter letras, números e underscores.
               A senha deve ter pelo menos 6 caracteres.
             </AlertDescription>
           </Alert>
@@ -104,6 +128,8 @@ const Auth = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               placeholder="seu_username"
+              pattern="[a-zA-Z0-9_]+"
+              minLength={3}
             />
           </div>
           
