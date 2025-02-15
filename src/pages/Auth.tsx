@@ -62,30 +62,34 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('auth', {
-        body: {
-          username: username.toLowerCase(),
+      // Convert username to a valid email format
+      const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const email = `${sanitizedUsername}@gmail.com`;
+
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
           password,
-          action: isSignUp ? 'register' : 'login'
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (data.success) {
-        if (isSignUp) {
-          toast({
-            title: "Registro bem-sucedido!",
-            description: "Por favor, faça login para continuar.",
-          });
-          setIsSignUp(false);
-        } else {
-          navigate('/');
-        }
+          options: {
+            data: {
+              username: username // Store the original username in user metadata
+            }
+          }
+        });
+        if (error) throw error;
+        toast({
+          title: "Registro bem-sucedido!",
+          description: "Por favor, faça login para continuar.",
+        });
+        setIsSignUp(false);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        navigate('/');
       }
     } catch (error: any) {
       toast({
