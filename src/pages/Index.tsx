@@ -1,9 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, Users, User, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Student {
   id: string;
@@ -11,100 +12,171 @@ interface Student {
 }
 
 interface MonthlyRecord {
-  studentId: string;
-  individualClasses: number;
-  groupClasses: number;
-  month: string; // formato: 'YYYY-MM'
+  id?: string;
+  student_id: string;
+  individual_classes: number;
+  group_classes: number;
+  month: string;
 }
 
 const Index = () => {
-  // Estado global de alunos
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('students');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Estado para registros mensais
-  const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>(() => {
-    const saved = localStorage.getItem('monthlyRecords');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Estados para valores das aulas
+  const { toast } = useToast();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
   const [individualRate, setIndividualRate] = useState<number>(14);
   const [groupRate, setGroupRate] = useState<number>(10);
-
-  // Estado para novo aluno
   const [newStudentName, setNewStudentName] = useState('');
-
-  // Estado para o mês atual
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
   });
 
-  // Salvar dados no localStorage
-  useEffect(() => {
-    localStorage.setItem('students', JSON.stringify(students));
-  }, [students]);
+  const fetchData = async () => {
+    try {
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*');
 
-  useEffect(() => {
-    localStorage.setItem('monthlyRecords', JSON.stringify(monthlyRecords));
-  }, [monthlyRecords]);
+      if (studentsError) throw studentsError;
 
-  const handleAddStudent = () => {
-    if (newStudentName.trim()) {
-      const newStudent = {
-        id: Date.now().toString(),
-        name: newStudentName.trim()
-      };
-      setStudents([...students, newStudent]);
-      setNewStudentName('');
+      const { data: recordsData, error: recordsError } = await supabase
+        .from('monthly_records')
+        .select('*');
+
+      if (recordsError) throw recordsError;
+
+      setStudents(studentsData || []);
+      setMonthlyRecords(recordsData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados. Por favor, tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleRemoveStudent = (id: string) => {
-    setStudents(students.filter(student => student.id !== id));
-    setMonthlyRecords(monthlyRecords.filter(record => record.studentId !== id));
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleAddStudent = async () => {
+    if (newStudentName.trim()) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .insert([{ name: newStudentName.trim() }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setStudents([...students, data]);
+        setNewStudentName('');
+        toast({
+          title: "Sucesso!",
+          description: "Aluno adicionado com sucesso.",
+        });
+      } catch (error) {
+        console.error('Error adding student:', error);
+        toast({
+          title: "Erro ao adicionar aluno",
+          description: "Não foi possível adicionar o aluno. Por favor, tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleRemoveStudent = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setStudents(students.filter(student => student.id !== id));
+      setMonthlyRecords(monthlyRecords.filter(record => record.student_id !== id));
+      toast({
+        title: "Sucesso!",
+        description: "Aluno removido com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error removing student:', error);
+      toast({
+        title: "Erro ao remover aluno",
+        description: "Não foi possível remover o aluno. Por favor, tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStudentRecord = (studentId: string): MonthlyRecord => {
     return (
       monthlyRecords.find(
-        record => record.studentId === studentId && record.month === currentMonth
+        record => record.student_id === studentId && record.month === currentMonth
       ) || {
-        studentId,
-        individualClasses: 0,
-        groupClasses: 0,
+        student_id: studentId,
+        individual_classes: 0,
+        group_classes: 0,
         month: currentMonth
       }
     );
   };
 
-  const updateClasses = (studentId: string, type: 'individual' | 'group', value: number) => {
-    const newRecords = [...monthlyRecords];
-    const existingRecordIndex = monthlyRecords.findIndex(
-      record => record.studentId === studentId && record.month === currentMonth
-    );
+  const updateClasses = async (studentId: string, type: 'individual' | 'group', value: number) => {
+    try {
+      const existingRecord = monthlyRecords.find(
+        record => record.student_id === studentId && record.month === currentMonth
+      );
 
-    const newRecord = {
-      studentId,
-      individualClasses: type === 'individual' ? value : getStudentRecord(studentId).individualClasses,
-      groupClasses: type === 'group' ? value : getStudentRecord(studentId).groupClasses,
-      month: currentMonth
-    };
+      const newRecord = {
+        student_id: studentId,
+        individual_classes: type === 'individual' ? value : getStudentRecord(studentId).individual_classes,
+        group_classes: type === 'group' ? value : getStudentRecord(studentId).group_classes,
+        month: currentMonth
+      };
 
-    if (existingRecordIndex >= 0) {
-      newRecords[existingRecordIndex] = newRecord;
-    } else {
-      newRecords.push(newRecord);
+      if (existingRecord) {
+        const { error } = await supabase
+          .from('monthly_records')
+          .update(newRecord)
+          .eq('student_id', studentId)
+          .eq('month', currentMonth);
+
+        if (error) throw error;
+
+        setMonthlyRecords(monthlyRecords.map(record =>
+          record.student_id === studentId && record.month === currentMonth
+            ? { ...record, ...newRecord }
+            : record
+        ));
+      } else {
+        const { data, error } = await supabase
+          .from('monthly_records')
+          .insert([newRecord])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setMonthlyRecords([...monthlyRecords, data]);
+      }
+    } catch (error) {
+      console.error('Error updating classes:', error);
+      toast({
+        title: "Erro ao atualizar aulas",
+        description: "Não foi possível atualizar as aulas. Por favor, tente novamente.",
+        variant: "destructive",
+      });
     }
-
-    setMonthlyRecords(newRecords);
   };
 
   const calculateTotal = (studentId: string) => {
     const record = getStudentRecord(studentId);
-    return (record.individualClasses * individualRate) + (record.groupClasses * groupRate);
+    return (record.individual_classes * individualRate) + (record.group_classes * groupRate);
   };
 
   const calculateGrandTotal = () => {
@@ -234,7 +306,7 @@ const Index = () => {
                       <td className="px-6 py-4 text-center">
                         <input
                           type="number"
-                          value={record.individualClasses || ''}
+                          value={record.individual_classes || ''}
                           onChange={(e) => updateClasses(student.id, 'individual', Number(e.target.value))}
                           className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
@@ -242,7 +314,7 @@ const Index = () => {
                       <td className="px-6 py-4 text-center">
                         <input
                           type="number"
-                          value={record.groupClasses || ''}
+                          value={record.group_classes || ''}
                           onChange={(e) => updateClasses(student.id, 'group', Number(e.target.value))}
                           className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />

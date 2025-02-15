@@ -9,7 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      monthly_records: {
+        Row: {
+          group_classes: number | null
+          id: string
+          individual_classes: number | null
+          month: string
+          student_id: string | null
+        }
+        Insert: {
+          group_classes?: number | null
+          id?: string
+          individual_classes?: number | null
+          month: string
+          student_id?: string | null
+        }
+        Update: {
+          group_classes?: number | null
+          id?: string
+          individual_classes?: number | null
+          month?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
