@@ -48,7 +48,7 @@ const Auth = () => {
         if (error) throw error;
         toast({
           title: "Registro bem-sucedido!",
-          description: "Por favor, faça login para continuar.",
+          description: "Por favor, verifique seu email para confirmar sua conta.",
         });
         setIsSignUp(false);
       } else {
@@ -56,7 +56,20 @@ const Auth = () => {
           email,
           password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          if (error.message === "Email not confirmed") {
+            toast({
+              title: "Email não confirmado",
+              description: "Por favor, verifique seu email e clique no link de confirmação antes de fazer login.",
+              variant: "destructive",
+            });
+          } else {
+            throw error;
+          }
+          return;
+        }
+        
         navigate('/');
       }
     } catch (error: any) {
@@ -84,7 +97,7 @@ const Auth = () => {
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
-              A senha deve ter pelo menos 6 caracteres.
+              A senha deve ter pelo menos 6 caracteres. Após o registro, você receberá um email de confirmação.
             </AlertDescription>
           </Alert>
         )}
