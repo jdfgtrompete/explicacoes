@@ -64,12 +64,17 @@ const Auth = () => {
     try {
       // Convert username to a valid email format
       const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const email = `${sanitizedUsername}@temporary.user`;
+      const email = `${sanitizedUsername}@gmail.com`;
 
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              username: username // Store the original username in user metadata
+            }
+          }
         });
         if (error) throw error;
         toast({
