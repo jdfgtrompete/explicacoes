@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -40,6 +40,9 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Convert username to a fake email format that Supabase accepts
+      const email = `${username.toLowerCase()}@user.local`;
+
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
@@ -48,7 +51,7 @@ const Auth = () => {
         if (error) throw error;
         toast({
           title: "Registro bem-sucedido!",
-          description: "Por favor, verifique seu email para confirmar sua conta.",
+          description: "Por favor, faça login para continuar.",
         });
         setIsSignUp(false);
       } else {
@@ -57,19 +60,7 @@ const Auth = () => {
           password,
         });
         
-        if (error) {
-          if (error.message === "Email not confirmed") {
-            toast({
-              title: "Email não confirmado",
-              description: "Por favor, verifique seu email e clique no link de confirmação antes de fazer login.",
-              variant: "destructive",
-            });
-          } else {
-            throw error;
-          }
-          return;
-        }
-        
+        if (error) throw error;
         navigate('/');
       }
     } catch (error: any) {
@@ -97,7 +88,7 @@ const Auth = () => {
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
-              A senha deve ter pelo menos 6 caracteres. Após o registro, você receberá um email de confirmação.
+              A senha deve ter pelo menos 6 caracteres.
             </AlertDescription>
           </Alert>
         )}
@@ -105,14 +96,14 @@ const Auth = () => {
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Nome de utilizador
             </label>
             <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="seu@email.com"
+              placeholder="seu_username"
             />
           </div>
           
