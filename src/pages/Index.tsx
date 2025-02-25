@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Users, User, CalendarIcon } from 'lucide-react';
+import { Plus, Trash2, Users, User, CalendarIcon, Clock, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +9,22 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Student {
   id: string;
@@ -15,13 +32,13 @@ interface Student {
   user_id: string;
 }
 
-interface MonthlyRecord {
-  id?: string;
+interface ClassSession {
+  id: string;
   student_id: string;
-  individual_classes: number;
-  group_classes: number;
-  month: string;
-  user_id: string;
+  date: string;
+  duration: number;
+  type: 'individual' | 'group';
+  notes?: string;
 }
 
 const Index = () => {
@@ -29,13 +46,19 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
-  const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
-  const [individualRate, setIndividualRate] = useState<number>(14);
-  const [groupRate, setGroupRate] = useState<number>(10);
+  const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
   const [newStudentName, setNewStudentName] = useState('');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
   });
+  
+  // Nova aula
+  const [isAddingClass, setIsAddingClass] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [classDate, setClassDate] = useState('');
+  const [classDuration, setClassDuration] = useState('');
+  const [classType, setClassType] = useState<'individual' | 'group'>('individual');
+  const [classNotes, setClassNotes] = useState('');
 
   const handleLogout = async () => {
     try {
@@ -55,15 +78,15 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
-      const { data: recordsData, error: recordsError } = await supabase
-        .from('monthly_records')
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('class_sessions')
         .select('*')
         .eq('user_id', user?.id);
 
-      if (recordsError) throw recordsError;
+      if (sessionsError) throw sessionsError;
 
       setStudents(studentsData || []);
-      setMonthlyRecords(recordsData || []);
+      setClassSessions(sessionsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -119,7 +142,7 @@ const Index = () => {
       if (error) throw error;
 
       setStudents(students.filter(student => student.id !== id));
-      setMonthlyRecords(monthlyRecords.filter(record => record.student_id !== id));
+      setClassSessions(classSessions.filter(session => session.student_id !== id));
       toast({
         title: "Sucesso!",
         description: "Aluno removido com sucesso.",
@@ -134,76 +157,83 @@ const Index = () => {
     }
   };
 
-  const getStudentRecord = (studentId: string): MonthlyRecord => {
-    return (
-      monthlyRecords.find(
-        record => record.student_id === studentId && record.month === currentMonth
-      ) || {
-        student_id: studentId,
-        individual_classes: 0,
-        group_classes: 0,
-        month: currentMonth,
-        user_id: user?.id
-      }
-    );
-  };
-
-  const updateClasses = async (studentId: string, type: 'individual' | 'group', value: number) => {
-    try {
-      const existingRecord = monthlyRecords.find(
-        record => record.student_id === studentId && record.month === currentMonth
-      );
-
-      const newRecord = {
-        student_id: studentId,
-        individual_classes: type === 'individual' ? value : getStudentRecord(studentId).individual_classes,
-        group_classes: type === 'group' ? value : getStudentRecord(studentId).group_classes,
-        month: currentMonth,
-        user_id: user?.id
-      };
-
-      if (existingRecord) {
-        const { error } = await supabase
-          .from('monthly_records')
-          .update(newRecord)
-          .eq('student_id', studentId)
-          .eq('month', currentMonth);
-
-        if (error) throw error;
-
-        setMonthlyRecords(monthlyRecords.map(record =>
-          record.student_id === studentId && record.month === currentMonth
-            ? { ...record, ...newRecord }
-            : record
-        ));
-      } else {
-        const { data, error } = await supabase
-          .from('monthly_records')
-          .insert([newRecord])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setMonthlyRecords([...monthlyRecords, data]);
-      }
-    } catch (error) {
-      console.error('Error updating classes:', error);
+  const handleAddClass = async () => {
+    if (!selectedStudent || !classDate || !classDuration) {
       toast({
-        title: "Erro ao atualizar aulas",
-        description: "Não foi possível atualizar as aulas. Por favor, tente novamente.",
+        title: "Erro de validação",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('class_sessions')
+        .insert([{
+          student_id: selectedStudent,
+          date: classDate,
+          duration: Number(classDuration),
+          type: classType,
+          notes: classNotes,
+          user_id: user?.id
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setClassSessions([...classSessions, data]);
+      setIsAddingClass(false);
+      resetClassForm();
+      toast({
+        title: "Sucesso!",
+        description: "Aula registrada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error adding class:', error);
+      toast({
+        title: "Erro ao registrar aula",
+        description: "Não foi possível registrar a aula. Por favor, tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const calculateTotal = (studentId: string) => {
-    const record = getStudentRecord(studentId);
-    return (record.individual_classes * individualRate) + (record.group_classes * groupRate);
+  const resetClassForm = () => {
+    setSelectedStudent('');
+    setClassDate('');
+    setClassDuration('');
+    setClassType('individual');
+    setClassNotes('');
+  };
+
+  const calculateMonthlyTotal = (studentId: string, type: 'individual' | 'group') => {
+    const monthStart = new Date(currentMonth + '-01');
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+    return classSessions
+      .filter(session => 
+        session.student_id === studentId &&
+        session.type === type &&
+        new Date(session.date) >= monthStart &&
+        new Date(session.date) <= monthEnd
+      )
+      .reduce((total, session) => total + Number(session.duration), 0);
+  };
+
+  const calculateStudentTotal = (studentId: string) => {
+    const individualRate = 14;
+    const groupRate = 10;
+    
+    const individualHours = calculateMonthlyTotal(studentId, 'individual');
+    const groupHours = calculateMonthlyTotal(studentId, 'group');
+
+    return (individualHours * individualRate) + (groupHours * groupRate);
   };
 
   const calculateGrandTotal = () => {
-    return students.reduce((total, student) => total + calculateTotal(student.id), 0);
+    return students.reduce((total, student) => total + calculateStudentTotal(student.id), 0);
   };
 
   return (
@@ -242,42 +272,6 @@ const Index = () => {
               />
             </div>
           </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/50 backdrop-blur-sm rounded-lg p-6 shadow-sm"
-          >
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-indigo-700">
-                Valor por Hora (Individual)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="number"
-                  value={individualRate}
-                  onChange={(e) => setIndividualRate(Number(e.target.value))}
-                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
-                />
-                <span className="ml-2">€</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-indigo-700">
-                Valor por Hora (Coletivas)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="number"
-                  value={groupRate}
-                  onChange={(e) => setGroupRate(Number(e.target.value))}
-                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
-                />
-                <span className="ml-2">€</span>
-              </div>
-            </div>
-          </motion.div>
         </div>
 
         <motion.div
@@ -312,12 +306,12 @@ const Index = () => {
                   <th className="px-6 py-4 text-left text-sm font-medium text-indigo-900">Nome</th>
                   <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
                     <div className="flex items-center justify-center gap-1">
-                      <User size={16} /> Aulas Individuais
+                      <User size={16} /> Horas Individuais
                     </div>
                   </th>
                   <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
                     <div className="flex items-center justify-center gap-1">
-                      <Users size={16} /> Aulas Coletivas
+                      <Users size={16} /> Horas Coletivas
                     </div>
                   </th>
                   <th className="px-6 py-4 text-right text-sm font-medium text-indigo-900">Total</th>
@@ -325,47 +319,103 @@ const Index = () => {
                 </tr>
               </thead>
               <tbody>
-                {students.map((student) => {
-                  const record = getStudentRecord(student.id);
-                  return (
-                    <motion.tr 
-                      key={student.id} 
-                      className="border-t border-indigo-100"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <td className="px-6 py-4 text-sm text-indigo-900">{student.name}</td>
-                      <td className="px-6 py-4 text-center">
-                        <input
-                          type="number"
-                          value={record.individual_classes || ''}
-                          onChange={(e) => updateClasses(student.id, 'individual', Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <input
-                          type="number"
-                          value={record.group_classes || ''}
-                          onChange={(e) => updateClasses(student.id, 'group', Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium text-indigo-900">
-                        {calculateTotal(student.id).toFixed(2)}€
-                      </td>
-                      <td className="px-6 py-4 text-center">
+                {students.map((student) => (
+                  <motion.tr 
+                    key={student.id} 
+                    className="border-t border-indigo-100"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <td className="px-6 py-4 text-sm text-indigo-900">{student.name}</td>
+                    <td className="px-6 py-4 text-center">
+                      {calculateMonthlyTotal(student.id, 'individual')}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {calculateMonthlyTotal(student.id, 'group')}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm font-medium text-indigo-900">
+                      {calculateStudentTotal(student.id).toFixed(2)}€
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Dialog open={isAddingClass} onOpenChange={setIsAddingClass}>
+                          <DialogTrigger asChild>
+                            <button
+                              onClick={() => {
+                                setSelectedStudent(student.id);
+                                setIsAddingClass(true);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-800 transition-colors"
+                              title="Adicionar aula"
+                            >
+                              <Plus size={18} />
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Registrar Nova Aula</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                              <div className="grid gap-2">
+                                <label>Data da Aula</label>
+                                <Input
+                                  type="date"
+                                  value={classDate}
+                                  onChange={(e) => setClassDate(e.target.value)}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label>Duração (horas)</label>
+                                <Input
+                                  type="number"
+                                  step="0.5"
+                                  min="0.5"
+                                  value={classDuration}
+                                  onChange={(e) => setClassDuration(e.target.value)}
+                                  placeholder="Ex: 1.5"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label>Tipo de Aula</label>
+                                <Select value={classType} onValueChange={(value: 'individual' | 'group') => setClassType(value)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="individual">Individual</SelectItem>
+                                    <SelectItem value="group">Coletiva</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                <label>Notas (opcional)</label>
+                                <Textarea
+                                  value={classNotes}
+                                  onChange={(e) => setClassNotes(e.target.value)}
+                                  placeholder="Adicione notas sobre a aula..."
+                                />
+                              </div>
+                              <button
+                                onClick={handleAddClass}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                              >
+                                Registrar Aula
+                              </button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                         <button
                           onClick={() => handleRemoveStudent(student.id)}
                           className="text-red-500 hover:text-red-700 transition-colors"
+                          title="Remover aluno"
                         >
                           <Trash2 size={18} />
                         </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
                 {students.length > 0 && (
                   <motion.tr 
                     className="border-t border-indigo-100 bg-indigo-50 font-medium"
