@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, Users, User, CalendarIcon, ChevronDown, ChevronUp } from 'lucide-react';
@@ -23,6 +22,7 @@ const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [weeklyRecords, setWeeklyRecords] = useState<WeeklyRecord[]>([]);
   const [newStudentName, setNewStudentName] = useState('');
+  const [newWeekNumber, setNewWeekNumber] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
   });
@@ -252,6 +252,82 @@ const Index = () => {
     return students.reduce((total, student) => total + calculateMonthlyTotal(student.id), 0);
   };
 
+  const handleAddWeeklyRecord = async (studentId: string) => {
+    if (!newWeekNumber || Number(newWeekNumber) < 1 || Number(newWeekNumber) > 53) {
+      toast({
+        title: "Erro",
+        description: "Por favor, insira um número de semana válido (1-53).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const [year, month] = currentMonth.split('-');
+    
+    try {
+      const existingRecord = weeklyRecords.find(
+        record => 
+          record.student_id === studentId && 
+          record.week_number === Number(newWeekNumber) &&
+          record.month === month &&
+          record.year === Number(year)
+      );
+
+      if (existingRecord) {
+        toast({
+          title: "Erro",
+          description: "Esta semana já existe para este aluno.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const newRecord = {
+        student_id: studentId,
+        user_id: user?.id,
+        week_number: Number(newWeekNumber),
+        month,
+        year: Number(year),
+        individual_classes: 0,
+        group_classes: 0,
+        individual_rate: 14,
+        group_rate: 10
+      };
+
+      const { data, error } = await supabase
+        .from('weekly_records')
+        .insert([newRecord])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setWeeklyRecords([...weeklyRecords, data]);
+      setNewWeekNumber('');
+      toast({
+        title: "Sucesso!",
+        description: "Semana adicionada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error adding week:', error);
+      toast({
+        title: "Erro ao adicionar semana",
+        description: "Não foi possível adicionar a semana. Por favor, tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStudentWeeks = (studentId: string) => {
+    const [year, month] = currentMonth.split('-');
+    return weeklyRecords.filter(
+      record => 
+        record.student_id === studentId &&
+        record.month === month &&
+        record.year === Number(year)
+    ).sort((a, b) => a.week_number - b.week_number);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
       <motion.div
@@ -341,16 +417,34 @@ const Index = () => {
 
                 <CollapsibleContent>
                   <div className="mt-4 space-y-4">
-                    {getWeeksInMonth().map((weekNumber) => {
-                      const record = getWeeklyRecord(student.id, weekNumber);
+                    <div className="flex gap-2 items-center mb-4">
+                      <input
+                        type="number"
+                        placeholder="Número da semana"
+                        value={newWeekNumber}
+                        onChange={(e) => setNewWeekNumber(e.target.value)}
+                        className="w-40 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        min="1"
+                        max="53"
+                      />
+                      <button
+                        onClick={() => handleAddWeeklyRecord(student.id)}
+                        className="px-4 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Adicionar Semana
+                      </button>
+                    </div>
+
+                    {getStudentWeeks(student.id).map((record) => {
                       const weekTotal = 
                         (record.individual_classes * record.individual_rate) +
                         (record.group_classes * record.group_rate);
 
                       return (
-                        <div key={weekNumber} className="bg-indigo-50/50 p-4 rounded-lg">
+                        <div key={record.id} className="bg-indigo-50/50 p-4 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-medium text-indigo-900">Semana {weekNumber}</h3>
+                            <h3 className="font-medium text-indigo-900">Semana {record.week_number}</h3>
                             <span className="text-sm font-medium text-indigo-600">
                               Total da semana: {weekTotal.toFixed(2)}€
                             </span>
@@ -366,7 +460,7 @@ const Index = () => {
                                 value={record.individual_classes || ''}
                                 onChange={(e) => updateWeeklyClasses(
                                   student.id,
-                                  weekNumber,
+                                  record.week_number,
                                   'individual',
                                   Number(e.target.value)
                                 )}
@@ -384,7 +478,7 @@ const Index = () => {
                                 value={record.group_classes || ''}
                                 onChange={(e) => updateWeeklyClasses(
                                   student.id,
-                                  weekNumber,
+                                  record.week_number,
                                   'group',
                                   Number(e.target.value)
                                 )}
