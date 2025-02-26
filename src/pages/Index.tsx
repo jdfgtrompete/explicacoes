@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, Users, User, CalendarIcon, ChevronDown } from 'lucide-react';
@@ -50,7 +49,7 @@ const Index = () => {
         .select('*')
         .eq('user_id', user?.id)
         .eq('month', month)
-        .eq('year', parseInt(year));
+        .eq('year', year);
 
       if (recordsError) throw recordsError;
 
@@ -129,7 +128,7 @@ const Index = () => {
   const getNextWeekNumber = () => {
     const [year, month] = currentMonth.split('-');
     const records = weeklyRecords.filter(
-      record => record.month === month && record.year === parseInt(year)
+      record => record.month === month && record.year === Number(year)
     );
     
     if (records.length === 0) return 1;
@@ -148,9 +147,9 @@ const Index = () => {
         user_id: user?.id,
         week_number: nextWeek,
         month,
-        year: parseInt(year),
-        individual_hours: 0,
-        group_hours: 0,
+        year: Number(year),
+        individual_classes: 0,
+        group_classes: 0,
         individual_rate: 14,
         group_rate: 10
       }));
@@ -177,7 +176,24 @@ const Index = () => {
     }
   };
 
-  const updateWeeklyHours = async (
+  const getWeeksInMonth = () => {
+    const date = new Date(currentMonth + '-01');
+    const startWeek = getWeek(startOfMonth(date));
+    const weeksInMonth = [startWeek];
+    
+    let currentDate = new Date(date);
+    while (currentDate.getMonth() === date.getMonth()) {
+      const week = getWeek(currentDate);
+      if (!weeksInMonth.includes(week)) {
+        weeksInMonth.push(week);
+      }
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    return weeksInMonth.sort((a, b) => a - b);
+  };
+
+  const updateWeeklyClasses = async (
     studentId: string,
     weekNumber: number,
     type: 'individual' | 'group',
@@ -191,7 +207,7 @@ const Index = () => {
           record.student_id === studentId && 
           record.week_number === weekNumber &&
           record.month === month &&
-          record.year === parseInt(year)
+          record.year === Number(year)
       );
 
       const newRecord = {
@@ -199,9 +215,9 @@ const Index = () => {
         user_id: user?.id,
         week_number: weekNumber,
         month,
-        year: parseInt(year),
-        individual_hours: type === 'individual' ? value : existingRecord?.individual_hours || 0,
-        group_hours: type === 'group' ? value : existingRecord?.group_hours || 0,
+        year: Number(year),
+        individual_classes: type === 'individual' ? value : existingRecord?.individual_classes || 0,
+        group_classes: type === 'group' ? value : existingRecord?.group_classes || 0,
         individual_rate: 14,
         group_rate: 10
       };
@@ -231,26 +247,36 @@ const Index = () => {
 
       toast({
         title: "Sucesso!",
-        description: "Horas atualizadas com sucesso.",
+        description: "Aulas atualizadas com sucesso.",
       });
     } catch (error) {
-      console.error('Error updating hours:', error);
+      console.error('Error updating classes:', error);
       toast({
-        title: "Erro ao atualizar horas",
-        description: "Não foi possível atualizar as horas. Por favor, tente novamente.",
+        title: "Erro ao atualizar aulas",
+        description: "Não foi possível atualizar as aulas. Por favor, tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const getStudentWeeks = (studentId: string) => {
+  const getWeeklyRecord = (studentId: string, weekNumber: number) => {
     const [year, month] = currentMonth.split('-');
-    return weeklyRecords.filter(
+    return weeklyRecords.find(
       record => 
-        record.student_id === studentId &&
+        record.student_id === studentId && 
+        record.week_number === weekNumber &&
         record.month === month &&
-        record.year === parseInt(year)
-    ).sort((a, b) => a.week_number - b.week_number);
+        record.year === Number(year)
+    ) || {
+      student_id: studentId,
+      week_number: weekNumber,
+      month,
+      year: Number(year),
+      individual_classes: 0,
+      group_classes: 0,
+      individual_rate: 14,
+      group_rate: 10
+    };
   };
 
   const calculateMonthlyTotal = (studentId: string) => {
@@ -259,12 +285,12 @@ const Index = () => {
       record => 
         record.student_id === studentId &&
         record.month === month &&
-        record.year === parseInt(year)
+        record.year === Number(year)
     );
 
     const total = studentRecords.reduce((acc, record) => {
-      const individualTotal = record.individual_hours * record.individual_rate;
-      const groupTotal = record.group_hours * record.group_rate;
+      const individualTotal = record.individual_classes * record.individual_rate;
+      const groupTotal = record.group_classes * record.group_rate;
       return acc + individualTotal + groupTotal;
     }, 0);
 
@@ -273,6 +299,16 @@ const Index = () => {
 
   const calculateGrandTotal = () => {
     return students.reduce((total, student) => total + calculateMonthlyTotal(student.id), 0);
+  };
+
+  const getStudentWeeks = (studentId: string) => {
+    const [year, month] = currentMonth.split('-');
+    return weeklyRecords.filter(
+      record => 
+        record.student_id === studentId &&
+        record.month === month &&
+        record.year === Number(year)
+    ).sort((a, b) => a.week_number - b.week_number);
   };
 
   return (
@@ -376,8 +412,8 @@ const Index = () => {
                   <div className="mt-4 space-y-4">
                     {getStudentWeeks(student.id).map((record) => {
                       const weekTotal = 
-                        (record.individual_hours * record.individual_rate) +
-                        (record.group_hours * record.group_rate);
+                        (record.individual_classes * record.individual_rate) +
+                        (record.group_classes * record.group_rate);
 
                       return (
                         <div key={record.id} className="bg-indigo-50/50 p-4 rounded-lg">
@@ -391,13 +427,12 @@ const Index = () => {
                             <div>
                               <label className="block text-sm font-medium text-indigo-700 mb-1">
                                 <User size={14} className="inline mr-1" />
-                                Horas Individuais
+                                Aulas Individuais
                               </label>
                               <input
                                 type="number"
-                                step="0.5"
-                                value={record.individual_hours || ''}
-                                onChange={(e) => updateWeeklyHours(
+                                value={record.individual_classes || ''}
+                                onChange={(e) => updateWeeklyClasses(
                                   student.id,
                                   record.week_number,
                                   'individual',
@@ -410,13 +445,12 @@ const Index = () => {
                             <div>
                               <label className="block text-sm font-medium text-indigo-700 mb-1">
                                 <Users size={14} className="inline mr-1" />
-                                Horas Coletivas
+                                Aulas Coletivas
                               </label>
                               <input
                                 type="number"
-                                step="0.5"
-                                value={record.group_hours || ''}
-                                onChange={(e) => updateWeeklyHours(
+                                value={record.group_classes || ''}
+                                onChange={(e) => updateWeeklyClasses(
                                   student.id,
                                   record.week_number,
                                   'group',

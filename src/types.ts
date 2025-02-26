@@ -12,8 +12,8 @@ export interface WeeklyRecord {
   week_number: number;
   month: string;
   year: number;
-  individual_hours: number;
-  group_hours: number;
+  individual_classes: number;
+  group_classes: number;
   individual_rate: number;
   group_rate: number;
 }
