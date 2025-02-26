@@ -142,6 +142,45 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_records: {
+        Row: {
+          group_classes: number | null
+          group_rate: number | null
+          id: string
+          individual_classes: number | null
+          individual_rate: number | null
+          month: string
+          student_id: string
+          user_id: string | null
+          week_number: number
+          year: number
+        }
+        Insert: {
+          group_classes?: number | null
+          group_rate?: number | null
+          id?: string
+          individual_classes?: number | null
+          individual_rate?: number | null
+          month: string
+          student_id: string
+          user_id?: string | null
+          week_number: number
+          year: number
+        }
+        Update: {
+          group_classes?: number | null
+          group_rate?: number | null
+          id?: string
+          individual_classes?: number | null
+          individual_rate?: number | null
+          month?: string
+          student_id?: string
+          user_id?: string | null
+          week_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

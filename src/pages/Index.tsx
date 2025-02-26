@@ -1,37 +1,27 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Users, User, CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Trash2, Users, User, CalendarIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { format, getWeek, getYear, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
-
-interface Student {
-  id: string;
-  name: string;
-  user_id: string;
-}
-
-interface MonthlyRecord {
-  id?: string;
-  student_id: string;
-  individual_classes: number;
-  group_classes: number;
-  month: string;
-  user_id: string;
-}
+import { Student, WeeklyRecord } from '@/types';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
-  const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
-  const [individualRate, setIndividualRate] = useState<number>(14);
-  const [groupRate, setGroupRate] = useState<number>(10);
+  const [weeklyRecords, setWeeklyRecords] = useState<WeeklyRecord[]>([]);
   const [newStudentName, setNewStudentName] = useState('');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
@@ -55,15 +45,18 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
+      const [year, month] = currentMonth.split('-');
       const { data: recordsData, error: recordsError } = await supabase
-        .from('monthly_records')
+        .from('weekly_records')
         .select('*')
-        .eq('user_id', user?.id);
+        .eq('user_id', user?.id)
+        .eq('month', month)
+        .eq('year', year);
 
       if (recordsError) throw recordsError;
 
       setStudents(studentsData || []);
-      setMonthlyRecords(recordsData || []);
+      setWeeklyRecords(recordsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -76,7 +69,7 @@ const Index = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentMonth]);
 
   const handleAddStudent = async () => {
     if (newStudentName.trim()) {
@@ -119,7 +112,7 @@ const Index = () => {
       if (error) throw error;
 
       setStudents(students.filter(student => student.id !== id));
-      setMonthlyRecords(monthlyRecords.filter(record => record.student_id !== id));
+      setWeeklyRecords(weeklyRecords.filter(record => record.student_id !== id));
       toast({
         title: "Sucesso!",
         description: "Aluno removido com sucesso.",
@@ -134,59 +127,79 @@ const Index = () => {
     }
   };
 
-  const getStudentRecord = (studentId: string): MonthlyRecord => {
-    return (
-      monthlyRecords.find(
-        record => record.student_id === studentId && record.month === currentMonth
-      ) || {
-        student_id: studentId,
-        individual_classes: 0,
-        group_classes: 0,
-        month: currentMonth,
-        user_id: user?.id
+  const getWeeksInMonth = () => {
+    const date = new Date(currentMonth + '-01');
+    const startWeek = getWeek(startOfMonth(date));
+    const weeksInMonth = [startWeek];
+    
+    let currentDate = new Date(date);
+    while (currentDate.getMonth() === date.getMonth()) {
+      const week = getWeek(currentDate);
+      if (!weeksInMonth.includes(week)) {
+        weeksInMonth.push(week);
       }
-    );
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    return weeksInMonth.sort((a, b) => a - b);
   };
 
-  const updateClasses = async (studentId: string, type: 'individual' | 'group', value: number) => {
+  const updateWeeklyClasses = async (
+    studentId: string,
+    weekNumber: number,
+    type: 'individual' | 'group',
+    value: number
+  ) => {
+    const [year, month] = currentMonth.split('-');
+    
     try {
-      const existingRecord = monthlyRecords.find(
-        record => record.student_id === studentId && record.month === currentMonth
+      const existingRecord = weeklyRecords.find(
+        record => 
+          record.student_id === studentId && 
+          record.week_number === weekNumber &&
+          record.month === month &&
+          record.year === Number(year)
       );
 
       const newRecord = {
         student_id: studentId,
-        individual_classes: type === 'individual' ? value : getStudentRecord(studentId).individual_classes,
-        group_classes: type === 'group' ? value : getStudentRecord(studentId).group_classes,
-        month: currentMonth,
-        user_id: user?.id
+        user_id: user?.id,
+        week_number: weekNumber,
+        month,
+        year: Number(year),
+        individual_classes: type === 'individual' ? value : existingRecord?.individual_classes || 0,
+        group_classes: type === 'group' ? value : existingRecord?.group_classes || 0,
+        individual_rate: 14,
+        group_rate: 10
       };
 
       if (existingRecord) {
         const { error } = await supabase
-          .from('monthly_records')
+          .from('weekly_records')
           .update(newRecord)
-          .eq('student_id', studentId)
-          .eq('month', currentMonth);
+          .eq('id', existingRecord.id);
 
         if (error) throw error;
 
-        setMonthlyRecords(monthlyRecords.map(record =>
-          record.student_id === studentId && record.month === currentMonth
-            ? { ...record, ...newRecord }
-            : record
+        setWeeklyRecords(weeklyRecords.map(record =>
+          record.id === existingRecord.id ? { ...record, ...newRecord } : record
         ));
       } else {
         const { data, error } = await supabase
-          .from('monthly_records')
+          .from('weekly_records')
           .insert([newRecord])
           .select()
           .single();
 
         if (error) throw error;
 
-        setMonthlyRecords([...monthlyRecords, data]);
+        setWeeklyRecords([...weeklyRecords, data]);
       }
+
+      toast({
+        title: "Sucesso!",
+        description: "Aulas atualizadas com sucesso.",
+      });
     } catch (error) {
       console.error('Error updating classes:', error);
       toast({
@@ -197,13 +210,46 @@ const Index = () => {
     }
   };
 
-  const calculateTotal = (studentId: string) => {
-    const record = getStudentRecord(studentId);
-    return (record.individual_classes * individualRate) + (record.group_classes * groupRate);
+  const getWeeklyRecord = (studentId: string, weekNumber: number) => {
+    const [year, month] = currentMonth.split('-');
+    return weeklyRecords.find(
+      record => 
+        record.student_id === studentId && 
+        record.week_number === weekNumber &&
+        record.month === month &&
+        record.year === Number(year)
+    ) || {
+      student_id: studentId,
+      week_number: weekNumber,
+      month,
+      year: Number(year),
+      individual_classes: 0,
+      group_classes: 0,
+      individual_rate: 14,
+      group_rate: 10
+    };
+  };
+
+  const calculateMonthlyTotal = (studentId: string) => {
+    const [year, month] = currentMonth.split('-');
+    const studentRecords = weeklyRecords.filter(
+      record => 
+        record.student_id === studentId &&
+        record.month === month &&
+        record.year === Number(year)
+    );
+
+    const total = studentRecords.reduce((acc, record) => {
+      const individualTotal = record.individual_classes * record.individual_rate;
+      const groupTotal = record.group_classes * record.group_rate;
+      return acc + individualTotal + groupTotal;
+    }, 0);
+
+    return total;
   };
 
   const calculateGrandTotal = () => {
-    return students.reduce((total, student) => total + calculateTotal(student.id), 0);
+    return students.reduce((total, student) => total + calculateMonthlyTotal(student.id), 0);
   };
 
   return (
@@ -212,7 +258,7 @@ const Index = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-5xl mx-auto"
+        className="max-w-6xl mx-auto"
       >
         <div className="mb-8">
           <motion.div 
@@ -242,42 +288,6 @@ const Index = () => {
               />
             </div>
           </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/50 backdrop-blur-sm rounded-lg p-6 shadow-sm"
-          >
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-indigo-700">
-                Valor por Hora (Individual)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="number"
-                  value={individualRate}
-                  onChange={(e) => setIndividualRate(Number(e.target.value))}
-                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
-                />
-                <span className="ml-2">€</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-indigo-700">
-                Valor por Hora (Coletivas)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="number"
-                  value={groupRate}
-                  onChange={(e) => setGroupRate(Number(e.target.value))}
-                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
-                />
-                <span className="ml-2">€</span>
-              </div>
-            </div>
-          </motion.div>
         </div>
 
         <motion.div
@@ -305,86 +315,102 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-indigo-50">
-                  <th className="px-6 py-4 text-left text-sm font-medium text-indigo-900">Nome</th>
-                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
-                    <div className="flex items-center justify-center gap-1">
-                      <User size={16} /> Aulas Individuais
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
-                    <div className="flex items-center justify-center gap-1">
-                      <Users size={16} /> Aulas Coletivas
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-indigo-900">Total</th>
-                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => {
-                  const record = getStudentRecord(student.id);
-                  return (
-                    <motion.tr 
-                      key={student.id} 
-                      className="border-t border-indigo-100"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3 }}
+          <div className="divide-y divide-indigo-100">
+            {students.map((student) => (
+              <Collapsible key={student.id} className="px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <CollapsibleTrigger className="flex items-center gap-2 hover:text-indigo-600">
+                      <ChevronDown className="h-4 w-4" />
+                      <span className="font-medium">{student.name}</span>
+                    </CollapsibleTrigger>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-indigo-900">
+                      Total: {calculateMonthlyTotal(student.id).toFixed(2)}€
+                    </span>
+                    <button
+                      onClick={() => handleRemoveStudent(student.id)}
+                      className="text-red-500 hover:text-red-700 transition-colors"
+                      title="Remover aluno"
                     >
-                      <td className="px-6 py-4 text-sm text-indigo-900">{student.name}</td>
-                      <td className="px-6 py-4 text-center">
-                        <input
-                          type="number"
-                          value={record.individual_classes || ''}
-                          onChange={(e) => updateClasses(student.id, 'individual', Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <input
-                          type="number"
-                          value={record.group_classes || ''}
-                          onChange={(e) => updateClasses(student.id, 'group', Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium text-indigo-900">
-                        {calculateTotal(student.id).toFixed(2)}€
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => handleRemoveStudent(student.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-                {students.length > 0 && (
-                  <motion.tr 
-                    className="border-t border-indigo-100 bg-indigo-50 font-medium"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <td colSpan={3} className="px-6 py-4 text-right text-indigo-900">
-                      Total do Mês:
-                    </td>
-                    <td className="px-6 py-4 text-right text-indigo-900 font-bold">
-                      {calculateGrandTotal().toFixed(2)}€
-                    </td>
-                    <td></td>
-                  </motion.tr>
-                )}
-              </tbody>
-            </table>
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <CollapsibleContent>
+                  <div className="mt-4 space-y-4">
+                    {getWeeksInMonth().map((weekNumber) => {
+                      const record = getWeeklyRecord(student.id, weekNumber);
+                      const weekTotal = 
+                        (record.individual_classes * record.individual_rate) +
+                        (record.group_classes * record.group_rate);
+
+                      return (
+                        <div key={weekNumber} className="bg-indigo-50/50 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-medium text-indigo-900">Semana {weekNumber}</h3>
+                            <span className="text-sm font-medium text-indigo-600">
+                              Total da semana: {weekTotal.toFixed(2)}€
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-indigo-700 mb-1">
+                                <User size={14} className="inline mr-1" />
+                                Aulas Individuais
+                              </label>
+                              <input
+                                type="number"
+                                value={record.individual_classes || ''}
+                                onChange={(e) => updateWeeklyClasses(
+                                  student.id,
+                                  weekNumber,
+                                  'individual',
+                                  Number(e.target.value)
+                                )}
+                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-indigo-700 mb-1">
+                                <Users size={14} className="inline mr-1" />
+                                Aulas Coletivas
+                              </label>
+                              <input
+                                type="number"
+                                value={record.group_classes || ''}
+                                onChange={(e) => updateWeeklyClasses(
+                                  student.id,
+                                  weekNumber,
+                                  'group',
+                                  Number(e.target.value)
+                                )}
+                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
           </div>
+
+          {students.length > 0 && (
+            <div className="border-t border-indigo-100 bg-indigo-50 p-4">
+              <div className="flex justify-end items-center">
+                <span className="text-lg font-medium text-indigo-900">
+                  Total do Mês: {calculateGrandTotal().toFixed(2)}€
+                </span>
+              </div>
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </div>
