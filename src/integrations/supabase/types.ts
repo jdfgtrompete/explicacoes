@@ -30,47 +30,6 @@ export type Database = {
         }
         Relationships: []
       }
-      class_sessions: {
-        Row: {
-          created_at: string
-          date: string
-          duration: number
-          id: string
-          notes: string | null
-          student_id: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          date: string
-          duration: number
-          id?: string
-          notes?: string | null
-          student_id: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          date?: string
-          duration?: number
-          id?: string
-          notes?: string | null
-          student_id?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "class_sessions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       monthly_records: {
         Row: {
           group_classes: number | null

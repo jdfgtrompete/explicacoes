@@ -1,22 +1,37 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, CalendarIcon, LogOut } from 'lucide-react';
+import { Plus, Trash2, Users, User, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { StudentList } from '@/components/StudentList';
-import { Student, ClassSession } from '@/types';
+
+interface Student {
+  id: string;
+  name: string;
+  user_id: string;
+}
+
+interface MonthlyRecord {
+  id?: string;
+  student_id: string;
+  individual_classes: number;
+  group_classes: number;
+  month: string;
+  user_id: string;
+}
 
 const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
+  const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
+  const [individualRate, setIndividualRate] = useState<number>(14);
+  const [groupRate, setGroupRate] = useState<number>(10);
   const [newStudentName, setNewStudentName] = useState('');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
@@ -40,15 +55,15 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('class_sessions')
+      const { data: recordsData, error: recordsError } = await supabase
+        .from('monthly_records')
         .select('*')
         .eq('user_id', user?.id);
 
-      if (sessionsError) throw sessionsError;
+      if (recordsError) throw recordsError;
 
       setStudents(studentsData || []);
-      setClassSessions(sessionsData as ClassSession[] || []);
+      setMonthlyRecords(recordsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -104,7 +119,7 @@ const Index = () => {
       if (error) throw error;
 
       setStudents(students.filter(student => student.id !== id));
-      setClassSessions(classSessions.filter(session => session.student_id !== id));
+      setMonthlyRecords(monthlyRecords.filter(record => record.student_id !== id));
       toast({
         title: "Sucesso!",
         description: "Aluno removido com sucesso.",
@@ -119,45 +134,76 @@ const Index = () => {
     }
   };
 
-  const handleAddClass = async (studentId: string, sessionData: Partial<ClassSession>) => {
-    if (!sessionData.date || !sessionData.duration) {
-      toast({
-        title: "Erro de validação",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const getStudentRecord = (studentId: string): MonthlyRecord => {
+    return (
+      monthlyRecords.find(
+        record => record.student_id === studentId && record.month === currentMonth
+      ) || {
+        student_id: studentId,
+        individual_classes: 0,
+        group_classes: 0,
+        month: currentMonth,
+        user_id: user?.id
+      }
+    );
+  };
 
+  const updateClasses = async (studentId: string, type: 'individual' | 'group', value: number) => {
     try {
-      const { data, error } = await supabase
-        .from('class_sessions')
-        .insert([{
-          student_id: studentId,
-          date: sessionData.date,
-          duration: sessionData.duration,
-          type: sessionData.type || 'individual',
-          notes: sessionData.notes,
-          user_id: user?.id
-        }])
-        .select()
-        .single();
+      const existingRecord = monthlyRecords.find(
+        record => record.student_id === studentId && record.month === currentMonth
+      );
 
-      if (error) throw error;
+      const newRecord = {
+        student_id: studentId,
+        individual_classes: type === 'individual' ? value : getStudentRecord(studentId).individual_classes,
+        group_classes: type === 'group' ? value : getStudentRecord(studentId).group_classes,
+        month: currentMonth,
+        user_id: user?.id
+      };
 
-      setClassSessions([...classSessions, data as ClassSession]);
-      toast({
-        title: "Sucesso!",
-        description: "Aula registrada com sucesso.",
-      });
+      if (existingRecord) {
+        const { error } = await supabase
+          .from('monthly_records')
+          .update(newRecord)
+          .eq('student_id', studentId)
+          .eq('month', currentMonth);
+
+        if (error) throw error;
+
+        setMonthlyRecords(monthlyRecords.map(record =>
+          record.student_id === studentId && record.month === currentMonth
+            ? { ...record, ...newRecord }
+            : record
+        ));
+      } else {
+        const { data, error } = await supabase
+          .from('monthly_records')
+          .insert([newRecord])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setMonthlyRecords([...monthlyRecords, data]);
+      }
     } catch (error) {
-      console.error('Error adding class:', error);
+      console.error('Error updating classes:', error);
       toast({
-        title: "Erro ao registrar aula",
-        description: "Não foi possível registrar a aula. Por favor, tente novamente.",
+        title: "Erro ao atualizar aulas",
+        description: "Não foi possível atualizar as aulas. Por favor, tente novamente.",
         variant: "destructive",
       });
     }
+  };
+
+  const calculateTotal = (studentId: string) => {
+    const record = getStudentRecord(studentId);
+    return (record.individual_classes * individualRate) + (record.group_classes * groupRate);
+  };
+
+  const calculateGrandTotal = () => {
+    return students.reduce((total, student) => total + calculateTotal(student.id), 0);
   };
 
   return (
@@ -196,6 +242,42 @@ const Index = () => {
               />
             </div>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/50 backdrop-blur-sm rounded-lg p-6 shadow-sm"
+          >
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-indigo-700">
+                Valor por Hora (Individual)
+              </label>
+              <div className="flex items-center">
+                <input
+                  type="number"
+                  value={individualRate}
+                  onChange={(e) => setIndividualRate(Number(e.target.value))}
+                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
+                />
+                <span className="ml-2">€</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-indigo-700">
+                Valor por Hora (Coletivas)
+              </label>
+              <div className="flex items-center">
+                <input
+                  type="number"
+                  value={groupRate}
+                  onChange={(e) => setGroupRate(Number(e.target.value))}
+                  className="w-24 px-3 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
+                />
+                <span className="ml-2">€</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
         <motion.div
@@ -206,11 +288,12 @@ const Index = () => {
         >
           <div className="p-6 border-b border-indigo-100 bg-white/50">
             <div className="flex gap-4 items-center">
-              <Input
+              <input
                 type="text"
                 placeholder="Nome do Aluno"
                 value={newStudentName}
                 onChange={(e) => setNewStudentName(e.target.value)}
+                className="flex-1 px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
                 onClick={handleAddStudent}
@@ -222,13 +305,86 @@ const Index = () => {
             </div>
           </div>
 
-          <StudentList
-            students={students}
-            classSessions={classSessions}
-            currentMonth={currentMonth}
-            onRemoveStudent={handleRemoveStudent}
-            onAddClass={handleAddClass}
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-indigo-50">
+                  <th className="px-6 py-4 text-left text-sm font-medium text-indigo-900">Nome</th>
+                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
+                    <div className="flex items-center justify-center gap-1">
+                      <User size={16} /> Aulas Individuais
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">
+                    <div className="flex items-center justify-center gap-1">
+                      <Users size={16} /> Aulas Coletivas
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-medium text-indigo-900">Total</th>
+                  <th className="px-6 py-4 text-center text-sm font-medium text-indigo-900">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((student) => {
+                  const record = getStudentRecord(student.id);
+                  return (
+                    <motion.tr 
+                      key={student.id} 
+                      className="border-t border-indigo-100"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <td className="px-6 py-4 text-sm text-indigo-900">{student.name}</td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          value={record.individual_classes || ''}
+                          onChange={(e) => updateClasses(student.id, 'individual', Number(e.target.value))}
+                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          value={record.group_classes || ''}
+                          onChange={(e) => updateClasses(student.id, 'group', Number(e.target.value))}
+                          className="w-20 px-2 py-1 text-right border border-indigo-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-medium text-indigo-900">
+                        {calculateTotal(student.id).toFixed(2)}€
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => handleRemoveStudent(student.id)}
+                          className="text-red-500 hover:text-red-700 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+                {students.length > 0 && (
+                  <motion.tr 
+                    className="border-t border-indigo-100 bg-indigo-50 font-medium"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <td colSpan={3} className="px-6 py-4 text-right text-indigo-900">
+                      Total do Mês:
+                    </td>
+                    <td className="px-6 py-4 text-right text-indigo-900 font-bold">
+                      {calculateGrandTotal().toFixed(2)}€
+                    </td>
+                    <td></td>
+                  </motion.tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </motion.div>
       </motion.div>
     </div>
