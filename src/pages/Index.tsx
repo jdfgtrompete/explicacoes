@@ -1,19 +1,17 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Users, User, CalendarIcon, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { Student, WeeklyRecord } from '@/types';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Header } from '@/components/Header';
+import { AddStudentForm } from '@/components/AddStudentForm';
+import { AddWeekButton } from '@/components/AddWeekButton';
+import { StudentList } from '@/components/StudentList';
+import { TotalDisplay } from '@/components/TotalDisplay';
 
 const Index = () => {
   const { user } = useAuth();
@@ -21,7 +19,6 @@ const Index = () => {
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [weeklyRecords, setWeeklyRecords] = useState<WeeklyRecord[]>([]);
-  const [newStudentName, setNewStudentName] = useState('');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
   });
@@ -50,7 +47,7 @@ const Index = () => {
         .select('*')
         .eq('user_id', user?.id)
         .eq('month', month)
-        .eq('year', year);
+        .eq('year', parseInt(year));
 
       if (recordsError) throw recordsError;
 
@@ -70,34 +67,31 @@ const Index = () => {
     fetchData();
   }, [currentMonth]);
 
-  const handleAddStudent = async () => {
-    if (newStudentName.trim()) {
-      try {
-        const { data, error } = await supabase
-          .from('students')
-          .insert([{ 
-            name: newStudentName.trim(),
-            user_id: user?.id
-          }])
-          .select()
-          .single();
+  const handleAddStudent = async (name: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .insert([{ 
+          name: name.trim(),
+          user_id: user?.id
+        }])
+        .select()
+        .single();
 
-        if (error) throw error;
+      if (error) throw error;
 
-        setStudents([...students, data]);
-        setNewStudentName('');
-        toast({
-          title: "Sucesso!",
-          description: "Aluno adicionado com sucesso.",
-        });
-      } catch (error) {
-        console.error('Error adding student:', error);
-        toast({
-          title: "Erro ao adicionar aluno",
-          description: "Não foi possível adicionar o aluno. Por favor, tente novamente.",
-          variant: "destructive",
-        });
-      }
+      setStudents([...students, data]);
+      toast({
+        title: "Sucesso!",
+        description: "Aluno adicionado com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error adding student:', error);
+      toast({
+        title: "Erro ao adicionar aluno",
+        description: "Não foi possível adicionar o aluno. Por favor, tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -129,7 +123,7 @@ const Index = () => {
   const getNextWeekNumber = () => {
     const [year, month] = currentMonth.split('-');
     const records = weeklyRecords.filter(
-      record => record.month === month && record.year === Number(year)
+      record => record.month === month && record.year === parseInt(year)
     );
     
     if (records.length === 0) return 1;
@@ -148,7 +142,7 @@ const Index = () => {
         user_id: user?.id,
         week_number: nextWeek,
         month,
-        year: Number(year),
+        year: parseInt(year),
         individual_classes: 0,
         group_classes: 0,
         individual_rate: 14,
@@ -191,7 +185,7 @@ const Index = () => {
           record.student_id === studentId && 
           record.week_number === weekNumber &&
           record.month === month &&
-          record.year === Number(year)
+          record.year === parseInt(year)
       );
 
       const newRecord = {
@@ -199,7 +193,7 @@ const Index = () => {
         user_id: user?.id,
         week_number: weekNumber,
         month,
-        year: Number(year),
+        year: parseInt(year),
         individual_classes: type === 'individual' ? value : existingRecord?.individual_classes || 0,
         group_classes: type === 'group' ? value : existingRecord?.group_classes || 0,
         individual_rate: existingRecord?.individual_rate || 14,
@@ -257,7 +251,7 @@ const Index = () => {
           record.student_id === studentId && 
           record.week_number === weekNumber &&
           record.month === month &&
-          record.year === Number(year)
+          record.year === parseInt(year)
       );
 
       if (!existingRecord) return;
@@ -299,7 +293,7 @@ const Index = () => {
       record => 
         record.student_id === studentId &&
         record.month === month &&
-        record.year === Number(year)
+        record.year === parseInt(year)
     ).sort((a, b) => a.week_number - b.week_number);
   };
 
@@ -309,7 +303,7 @@ const Index = () => {
       record => 
         record.student_id === studentId &&
         record.month === month &&
-        record.year === Number(year)
+        record.year === parseInt(year)
     );
 
     const total = studentRecords.reduce((acc, record) => {
@@ -333,35 +327,12 @@ const Index = () => {
         transition={{ duration: 0.5 }}
         className="max-w-6xl mx-auto"
       >
-        <div className="mb-8">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="flex items-center justify-between mb-6"
-          >
-            <h1 className="text-4xl font-light text-indigo-900 flex items-center gap-2">
-              <CalendarIcon className="w-8 h-8" />
-              Gestor de Explicações
-            </h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-indigo-600">{user?.email}</span>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-                title="Sair"
-              >
-                <LogOut size={20} />
-              </button>
-              <input
-                type="month"
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(e.target.value)}
-                className="px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </motion.div>
-        </div>
+        <Header 
+          email={user?.email}
+          currentMonth={currentMonth}
+          setCurrentMonth={setCurrentMonth}
+          handleLogout={handleLogout}
+        />
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -371,167 +342,24 @@ const Index = () => {
         >
           <div className="p-6 border-b border-indigo-100 bg-white/50">
             <div className="flex gap-4 items-center justify-between">
-              <div className="flex gap-4 flex-1">
-                <input
-                  type="text"
-                  placeholder="Nome do Aluno"
-                  value={newStudentName}
-                  onChange={(e) => setNewStudentName(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  onClick={handleAddStudent}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <Plus size={18} />
-                  Adicionar Aluno
-                </button>
-              </div>
-              <button
-                onClick={handleAddWeek}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
-                disabled={students.length === 0}
-              >
-                <Plus size={18} />
-                Adicionar Nova Semana
-              </button>
+              <AddStudentForm onAddStudent={handleAddStudent} />
+              <AddWeekButton onAddWeek={handleAddWeek} disabled={students.length === 0} />
             </div>
           </div>
 
-          <div className="divide-y divide-indigo-100">
-            {students.map((student) => (
-              <Collapsible key={student.id} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <CollapsibleTrigger className="flex items-center gap-2 hover:text-indigo-600">
-                      <ChevronDown className="h-4 w-4" />
-                      <span className="font-medium">{student.name}</span>
-                    </CollapsibleTrigger>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-indigo-900">
-                      Total: {calculateMonthlyTotal(student.id).toFixed(2)}€
-                    </span>
-                    <button
-                      onClick={() => handleRemoveStudent(student.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                      title="Remover aluno"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                <CollapsibleContent>
-                  <div className="mt-4 space-y-4">
-                    {getStudentWeeks(student.id).map((record) => {
-                      const weekTotal = 
-                        (record.individual_classes * record.individual_rate) +
-                        (record.group_classes * record.group_rate);
-
-                      return (
-                        <div key={record.id} className="bg-indigo-50/50 p-4 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-medium text-indigo-900">Semana {record.week_number}</h3>
-                            <span className="text-sm font-medium text-indigo-600">
-                              Total da semana: {weekTotal.toFixed(2)}€
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mb-3">
-                            <div>
-                              <label className="block text-sm font-medium text-indigo-700 mb-1">
-                                <User size={14} className="inline mr-1" />
-                                Horas Individuais
-                              </label>
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={record.individual_classes || ''}
-                                onChange={(e) => updateWeeklyClasses(
-                                  student.id,
-                                  record.week_number,
-                                  'individual',
-                                  Number(e.target.value)
-                                )}
-                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                min="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-indigo-700 mb-1">
-                                <Users size={14} className="inline mr-1" />
-                                Horas Coletivas
-                              </label>
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={record.group_classes || ''}
-                                onChange={(e) => updateWeeklyClasses(
-                                  student.id,
-                                  record.week_number,
-                                  'group',
-                                  Number(e.target.value)
-                                )}
-                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                min="0"
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-indigo-700 mb-1">
-                                Preço/Hora Individual (€)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={record.individual_rate || ''}
-                                onChange={(e) => updateRates(
-                                  student.id,
-                                  record.week_number,
-                                  'individual',
-                                  Number(e.target.value)
-                                )}
-                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                min="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-indigo-700 mb-1">
-                                Preço/Hora Coletiva (€)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={record.group_rate || ''}
-                                onChange={(e) => updateRates(
-                                  student.id,
-                                  record.week_number,
-                                  'group',
-                                  Number(e.target.value)
-                                )}
-                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                min="0"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
-          </div>
+          <StudentList 
+            students={students}
+            weeklyRecords={weeklyRecords}
+            currentMonth={currentMonth}
+            onRemoveStudent={handleRemoveStudent}
+            onUpdateClasses={updateWeeklyClasses}
+            onUpdateRates={updateRates}
+            calculateMonthlyTotal={calculateMonthlyTotal}
+            getStudentWeeks={getStudentWeeks}
+          />
 
           {students.length > 0 && (
-            <div className="border-t border-indigo-100 bg-indigo-50 p-4">
-              <div className="flex justify-end items-center">
-                <span className="text-lg font-medium text-indigo-900">
-                  Total do Mês: {calculateGrandTotal().toFixed(2)}€
-                </span>
-              </div>
-            </div>
+            <TotalDisplay total={calculateGrandTotal()} />
           )}
         </motion.div>
       </motion.div>
