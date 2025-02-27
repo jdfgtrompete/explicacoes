@@ -124,6 +124,38 @@ export type Database = {
         }
         Relationships: []
       }
+      student_rates: {
+        Row: {
+          group_rate: number | null
+          id: string
+          individual_rate: number | null
+          student_id: string
+          user_id: string | null
+        }
+        Insert: {
+          group_rate?: number | null
+          id?: string
+          individual_rate?: number | null
+          student_id: string
+          user_id?: string | null
+        }
+        Update: {
+          group_rate?: number | null
+          id?: string
+          individual_rate?: number | null
+          student_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_rates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           id: string
