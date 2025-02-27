@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, Users, User, CalendarIcon, ChevronDown } from 'lucide-react';
@@ -176,23 +177,6 @@ const Index = () => {
     }
   };
 
-  const getWeeksInMonth = () => {
-    const date = new Date(currentMonth + '-01');
-    const startWeek = getWeek(startOfMonth(date));
-    const weeksInMonth = [startWeek];
-    
-    let currentDate = new Date(date);
-    while (currentDate.getMonth() === date.getMonth()) {
-      const week = getWeek(currentDate);
-      if (!weeksInMonth.includes(week)) {
-        weeksInMonth.push(week);
-      }
-      currentDate.setDate(currentDate.getDate() + 7);
-    }
-    
-    return weeksInMonth.sort((a, b) => a - b);
-  };
-
   const updateWeeklyClasses = async (
     studentId: string,
     weekNumber: number,
@@ -218,8 +202,8 @@ const Index = () => {
         year: Number(year),
         individual_classes: type === 'individual' ? value : existingRecord?.individual_classes || 0,
         group_classes: type === 'group' ? value : existingRecord?.group_classes || 0,
-        individual_rate: 14,
-        group_rate: 10
+        individual_rate: existingRecord?.individual_rate || 14,
+        group_rate: existingRecord?.group_rate || 10
       };
 
       if (existingRecord) {
@@ -247,36 +231,76 @@ const Index = () => {
 
       toast({
         title: "Sucesso!",
-        description: "Aulas atualizadas com sucesso.",
+        description: "Horas atualizadas com sucesso.",
       });
     } catch (error) {
       console.error('Error updating classes:', error);
       toast({
-        title: "Erro ao atualizar aulas",
-        description: "Não foi possível atualizar as aulas. Por favor, tente novamente.",
+        title: "Erro ao atualizar horas",
+        description: "Não foi possível atualizar as horas. Por favor, tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const getWeeklyRecord = (studentId: string, weekNumber: number) => {
+  const updateRates = async (
+    studentId: string,
+    weekNumber: number,
+    type: 'individual' | 'group',
+    value: number
+  ) => {
     const [year, month] = currentMonth.split('-');
-    return weeklyRecords.find(
+    
+    try {
+      const existingRecord = weeklyRecords.find(
+        record => 
+          record.student_id === studentId && 
+          record.week_number === weekNumber &&
+          record.month === month &&
+          record.year === Number(year)
+      );
+
+      if (!existingRecord) return;
+
+      const newRecord = {
+        ...existingRecord,
+        individual_rate: type === 'individual' ? value : existingRecord.individual_rate,
+        group_rate: type === 'group' ? value : existingRecord.group_rate
+      };
+
+      const { error } = await supabase
+        .from('weekly_records')
+        .update(newRecord)
+        .eq('id', existingRecord.id);
+
+      if (error) throw error;
+
+      setWeeklyRecords(weeklyRecords.map(record =>
+        record.id === existingRecord.id ? { ...record, ...newRecord } : record
+      ));
+
+      toast({
+        title: "Sucesso!",
+        description: "Preço por hora atualizado com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error updating rates:', error);
+      toast({
+        title: "Erro ao atualizar preço por hora",
+        description: "Não foi possível atualizar o preço por hora. Por favor, tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStudentWeeks = (studentId: string) => {
+    const [year, month] = currentMonth.split('-');
+    return weeklyRecords.filter(
       record => 
-        record.student_id === studentId && 
-        record.week_number === weekNumber &&
+        record.student_id === studentId &&
         record.month === month &&
         record.year === Number(year)
-    ) || {
-      student_id: studentId,
-      week_number: weekNumber,
-      month,
-      year: Number(year),
-      individual_classes: 0,
-      group_classes: 0,
-      individual_rate: 14,
-      group_rate: 10
-    };
+    ).sort((a, b) => a.week_number - b.week_number);
   };
 
   const calculateMonthlyTotal = (studentId: string) => {
@@ -299,16 +323,6 @@ const Index = () => {
 
   const calculateGrandTotal = () => {
     return students.reduce((total, student) => total + calculateMonthlyTotal(student.id), 0);
-  };
-
-  const getStudentWeeks = (studentId: string) => {
-    const [year, month] = currentMonth.split('-');
-    return weeklyRecords.filter(
-      record => 
-        record.student_id === studentId &&
-        record.month === month &&
-        record.year === Number(year)
-    ).sort((a, b) => a.week_number - b.week_number);
   };
 
   return (
@@ -423,14 +437,15 @@ const Index = () => {
                               Total da semana: {weekTotal.toFixed(2)}€
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-2 gap-4 mb-3">
                             <div>
                               <label className="block text-sm font-medium text-indigo-700 mb-1">
                                 <User size={14} className="inline mr-1" />
-                                Aulas Individuais
+                                Horas Individuais
                               </label>
                               <input
                                 type="number"
+                                step="0.5"
                                 value={record.individual_classes || ''}
                                 onChange={(e) => updateWeeklyClasses(
                                   student.id,
@@ -445,12 +460,51 @@ const Index = () => {
                             <div>
                               <label className="block text-sm font-medium text-indigo-700 mb-1">
                                 <Users size={14} className="inline mr-1" />
-                                Aulas Coletivas
+                                Horas Coletivas
                               </label>
                               <input
                                 type="number"
+                                step="0.5"
                                 value={record.group_classes || ''}
                                 onChange={(e) => updateWeeklyClasses(
+                                  student.id,
+                                  record.week_number,
+                                  'group',
+                                  Number(e.target.value)
+                                )}
+                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-indigo-700 mb-1">
+                                Preço/Hora Individual (€)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={record.individual_rate || ''}
+                                onChange={(e) => updateRates(
+                                  student.id,
+                                  record.week_number,
+                                  'individual',
+                                  Number(e.target.value)
+                                )}
+                                className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-indigo-700 mb-1">
+                                Preço/Hora Coletiva (€)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={record.group_rate || ''}
+                                onChange={(e) => updateRates(
                                   student.id,
                                   record.week_number,
                                   'group',
