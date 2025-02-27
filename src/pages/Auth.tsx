@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,23 +23,13 @@ const Auth = () => {
     return null;
   };
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return "Por favor, insira um email válido";
-    }
-    return null;
-  };
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate email
-    const emailError = validateEmail(email);
-    if (emailError) {
+    if (!username.trim()) {
       toast({
         title: "Erro de validação",
-        description: emailError,
+        description: "Por favor, insira um nome de usuário",
         variant: "destructive",
       });
       return;
@@ -62,10 +52,10 @@ const Auth = () => {
       if (isSignUp) {
         // Sign up
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: `${username.toLowerCase()}@example.com`,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            data: { username }
           }
         });
 
@@ -73,13 +63,13 @@ const Auth = () => {
 
         toast({
           title: "Registro bem-sucedido!",
-          description: "Por favor, verifique seu email para confirmar seu cadastro.",
+          description: "Sua conta foi criada. Você já pode fazer login.",
         });
         setIsSignUp(false);
       } else {
         // Sign in
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: `${username.toLowerCase()}@example.com`,
           password,
         });
 
@@ -112,7 +102,7 @@ const Auth = () => {
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
-              O email deve ser válido e a senha deve ter pelo menos 6 caracteres.
+              A senha deve ter pelo menos 6 caracteres.
             </AlertDescription>
           </Alert>
         )}
@@ -120,14 +110,14 @@ const Auth = () => {
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Nome de Usuário
             </label>
             <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="seu@email.com"
+              placeholder="seu_usuario"
             />
           </div>
           

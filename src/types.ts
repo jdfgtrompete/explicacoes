@@ -17,3 +17,11 @@ export interface WeeklyRecord {
   individual_rate: number;
   group_rate: number;
 }
+
+export interface StudentRate {
+  id?: string;
+  student_id: string;
+  user_id?: string;
+  individual_rate: number;
+  group_rate: number;
+}

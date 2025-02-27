@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Student, WeeklyRecord } from '@/types';
+import { Student, WeeklyRecord, StudentRate } from '@/types';
 import { Header } from '@/components/Header';
 import { AddStudentForm } from '@/components/AddStudentForm';
 import { AddWeekButton } from '@/components/AddWeekButton';
@@ -19,6 +19,7 @@ const Index = () => {
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [weeklyRecords, setWeeklyRecords] = useState<WeeklyRecord[]>([]);
+  const [studentRates, setStudentRates] = useState<StudentRate[]>([]);
   const [currentMonth, setCurrentMonth] = useState(() => {
     return format(new Date(), 'yyyy-MM');
   });
@@ -34,6 +35,7 @@ const Index = () => {
 
   const fetchData = async () => {
     try {
+      // Carregar alunos
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -41,6 +43,7 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
+      // Carregar registros semanais
       const [year, month] = currentMonth.split('-');
       const { data: recordsData, error: recordsError } = await supabase
         .from('weekly_records')
@@ -51,8 +54,27 @@ const Index = () => {
 
       if (recordsError) throw recordsError;
 
+      // Carregar taxas de alunos
+      const { data: ratesData, error: ratesError } = await supabase
+        .from('student_rates')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (ratesError) throw ratesError;
+
       setStudents(studentsData || []);
       setWeeklyRecords(recordsData || []);
+      setStudentRates(ratesData || []);
+
+      // Criar taxas para novos alunos se necessário
+      if (studentsData) {
+        for (const student of studentsData) {
+          const hasRate = ratesData?.some(rate => rate.student_id === student.id);
+          if (!hasRate) {
+            await createDefaultRate(student.id);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -63,9 +85,30 @@ const Index = () => {
     }
   };
 
+  const createDefaultRate = async (studentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('student_rates')
+        .insert([{
+          student_id: studentId,
+          user_id: user?.id,
+          individual_rate: 14,
+          group_rate: 10
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setStudentRates(prev => [...prev, data]);
+    } catch (error) {
+      console.error('Error creating default rate:', error);
+    }
+  };
+
   useEffect(() => {
     fetchData();
-  }, [currentMonth]);
+  }, [currentMonth, user?.id]);
 
   const handleAddStudent = async (name: string) => {
     try {
@@ -79,6 +122,9 @@ const Index = () => {
         .single();
 
       if (error) throw error;
+
+      // Criar taxa padrão para o novo aluno
+      await createDefaultRate(data.id);
 
       setStudents([...students, data]);
       toast({
@@ -106,6 +152,8 @@ const Index = () => {
 
       setStudents(students.filter(student => student.id !== id));
       setWeeklyRecords(weeklyRecords.filter(record => record.student_id !== id));
+      setStudentRates(studentRates.filter(rate => rate.student_id !== id));
+      
       toast({
         title: "Sucesso!",
         description: "Aluno removido com sucesso.",
@@ -132,21 +180,28 @@ const Index = () => {
     return maxWeek + 1;
   };
 
+  const getStudentRate = (studentId: string): StudentRate | undefined => {
+    return studentRates.find(rate => rate.student_id === studentId);
+  };
+
   const handleAddWeek = async () => {
     const [year, month] = currentMonth.split('-');
     const nextWeek = getNextWeekNumber();
     
     try {
-      const newRecords = students.map(student => ({
-        student_id: student.id,
-        user_id: user?.id,
-        week_number: nextWeek,
-        month,
-        year: parseInt(year),
-        individual_classes: 0,
-        group_classes: 0,
-        individual_rate: 14,
-        group_rate: 10
+      const newRecords = await Promise.all(students.map(async (student) => {
+        const rate = getStudentRate(student.id);
+        return {
+          student_id: student.id,
+          user_id: user?.id,
+          week_number: nextWeek,
+          month,
+          year: parseInt(year),
+          individual_classes: 0,
+          group_classes: 0,
+          individual_rate: rate?.individual_rate || 14,
+          group_rate: rate?.group_rate || 10
+        };
       }));
 
       const { data, error } = await supabase
@@ -188,6 +243,8 @@ const Index = () => {
           record.year === parseInt(year)
       );
 
+      const rate = getStudentRate(studentId);
+
       const newRecord = {
         student_id: studentId,
         user_id: user?.id,
@@ -196,8 +253,8 @@ const Index = () => {
         year: parseInt(year),
         individual_classes: type === 'individual' ? value : existingRecord?.individual_classes || 0,
         group_classes: type === 'group' ? value : existingRecord?.group_classes || 0,
-        individual_rate: existingRecord?.individual_rate || 14,
-        group_rate: existingRecord?.group_rate || 10
+        individual_rate: rate?.individual_rate || 14,
+        group_rate: rate?.group_rate || 10
       };
 
       if (existingRecord) {
@@ -237,53 +294,107 @@ const Index = () => {
     }
   };
 
-  const updateRates = async (
+  const updateStudentRates = async (
     studentId: string,
-    weekNumber: number,
     type: 'individual' | 'group',
     value: number
   ) => {
-    const [year, month] = currentMonth.split('-');
-    
     try {
-      const existingRecord = weeklyRecords.find(
-        record => 
-          record.student_id === studentId && 
-          record.week_number === weekNumber &&
-          record.month === month &&
-          record.year === parseInt(year)
-      );
+      const existingRate = studentRates.find(rate => rate.student_id === studentId);
 
-      if (!existingRecord) return;
+      if (!existingRate) {
+        // Criar nova taxa para o aluno
+        const newRate = {
+          student_id: studentId,
+          user_id: user?.id,
+          individual_rate: type === 'individual' ? value : 14,
+          group_rate: type === 'group' ? value : 10
+        };
 
-      const newRecord = {
-        ...existingRecord,
-        individual_rate: type === 'individual' ? value : existingRecord.individual_rate,
-        group_rate: type === 'group' ? value : existingRecord.group_rate
-      };
+        const { data, error } = await supabase
+          .from('student_rates')
+          .insert([newRate])
+          .select()
+          .single();
 
-      const { error } = await supabase
-        .from('weekly_records')
-        .update(newRecord)
-        .eq('id', existingRecord.id);
+        if (error) throw error;
 
-      if (error) throw error;
+        setStudentRates([...studentRates, data]);
 
-      setWeeklyRecords(weeklyRecords.map(record =>
-        record.id === existingRecord.id ? { ...record, ...newRecord } : record
-      ));
+        // Atualizar também os registros existentes
+        await updateExistingRecordsRates(studentId, type, value);
+      } else {
+        // Atualizar taxa existente
+        const updatedRate = {
+          ...existingRate,
+          individual_rate: type === 'individual' ? value : existingRate.individual_rate,
+          group_rate: type === 'group' ? value : existingRate.group_rate
+        };
+
+        const { error } = await supabase
+          .from('student_rates')
+          .update(updatedRate)
+          .eq('id', existingRate.id);
+
+        if (error) throw error;
+
+        setStudentRates(studentRates.map(rate =>
+          rate.id === existingRate.id ? updatedRate : rate
+        ));
+
+        // Atualizar também os registros existentes
+        await updateExistingRecordsRates(studentId, type, value);
+      }
 
       toast({
         title: "Sucesso!",
         description: "Preço por hora atualizado com sucesso.",
       });
     } catch (error) {
-      console.error('Error updating rates:', error);
+      console.error('Error updating student rates:', error);
       toast({
         title: "Erro ao atualizar preço por hora",
         description: "Não foi possível atualizar o preço por hora. Por favor, tente novamente.",
         variant: "destructive",
       });
+    }
+  };
+
+  const updateExistingRecordsRates = async (
+    studentId: string,
+    type: 'individual' | 'group',
+    value: number
+  ) => {
+    const [year, month] = currentMonth.split('-');
+    
+    try {
+      const recordsToUpdate = weeklyRecords.filter(
+        record => 
+          record.student_id === studentId &&
+          record.month === month &&
+          record.year === parseInt(year)
+      );
+
+      for (const record of recordsToUpdate) {
+        const updatedRecord = {
+          ...record,
+          individual_rate: type === 'individual' ? value : record.individual_rate,
+          group_rate: type === 'group' ? value : record.group_rate
+        };
+
+        const { error } = await supabase
+          .from('weekly_records')
+          .update(updatedRecord)
+          .eq('id', record.id);
+
+        if (error) throw error;
+
+        setWeeklyRecords(prev => 
+          prev.map(r => r.id === record.id ? updatedRecord : r)
+        );
+      }
+    } catch (error) {
+      console.error('Error updating existing records rates:', error);
     }
   };
 
@@ -306,9 +417,15 @@ const Index = () => {
         record.year === parseInt(year)
     );
 
+    const rate = getStudentRate(studentId);
+
     const total = studentRecords.reduce((acc, record) => {
-      const individualTotal = record.individual_classes * record.individual_rate;
-      const groupTotal = record.group_classes * record.group_rate;
+      // Usar a taxa específica do aluno se disponível
+      const individualRate = rate?.individual_rate || record.individual_rate;
+      const groupRate = rate?.group_rate || record.group_rate;
+      
+      const individualTotal = record.individual_classes * individualRate;
+      const groupTotal = record.group_classes * groupRate;
       return acc + individualTotal + groupTotal;
     }, 0);
 
@@ -350,10 +467,11 @@ const Index = () => {
           <StudentList 
             students={students}
             weeklyRecords={weeklyRecords}
+            studentRates={studentRates}
             currentMonth={currentMonth}
             onRemoveStudent={handleRemoveStudent}
             onUpdateClasses={updateWeeklyClasses}
-            onUpdateRates={updateRates}
+            onUpdateRates={updateStudentRates}
             calculateMonthlyTotal={calculateMonthlyTotal}
             getStudentWeeks={getStudentWeeks}
           />
