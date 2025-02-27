@@ -44,13 +44,16 @@ export const WeeklyRecordItem = ({
           <input
             type="number"
             step="0.5"
-            value={record.individual_classes || ''}
-            onChange={(e) => onUpdateClasses(
-              record.student_id,
-              record.week_number,
-              'individual',
-              Number(e.target.value)
-            )}
+            value={record.individual_classes}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              onUpdateClasses(
+                record.student_id,
+                record.week_number,
+                'individual',
+                isNaN(value) ? 0 : value
+              );
+            }}
             className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             min="0"
           />
@@ -63,13 +66,16 @@ export const WeeklyRecordItem = ({
           <input
             type="number"
             step="0.5"
-            value={record.group_classes || ''}
-            onChange={(e) => onUpdateClasses(
-              record.student_id,
-              record.week_number,
-              'group',
-              Number(e.target.value)
-            )}
+            value={record.group_classes}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              onUpdateClasses(
+                record.student_id,
+                record.week_number,
+                'group',
+                isNaN(value) ? 0 : value
+              );
+            }}
             className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             min="0"
           />
@@ -83,13 +89,16 @@ export const WeeklyRecordItem = ({
           <input
             type="number"
             step="0.5"
-            value={record.individual_rate || ''}
-            onChange={(e) => onUpdateRates(
-              record.student_id,
-              record.week_number,
-              'individual',
-              Number(e.target.value)
-            )}
+            value={record.individual_rate}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              onUpdateRates(
+                record.student_id,
+                record.week_number,
+                'individual',
+                isNaN(value) ? 0 : value
+              );
+            }}
             className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             min="0"
           />
@@ -101,13 +110,16 @@ export const WeeklyRecordItem = ({
           <input
             type="number"
             step="0.5"
-            value={record.group_rate || ''}
-            onChange={(e) => onUpdateRates(
-              record.student_id,
-              record.week_number,
-              'group',
-              Number(e.target.value)
-            )}
+            value={record.group_rate}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              onUpdateRates(
+                record.student_id,
+                record.week_number,
+                'group',
+                isNaN(value) ? 0 : value
+              );
+            }}
             className="w-24 px-3 py-1 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             min="0"
           />

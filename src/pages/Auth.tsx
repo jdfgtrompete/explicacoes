@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,13 +23,10 @@ const Auth = () => {
     return null;
   };
 
-  const validateUsername = (username: string) => {
-    if (username.length < 3) {
-      return "O nome de utilizador deve ter pelo menos 3 caracteres";
-    }
-    // Only allow letters, numbers, and underscores
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return "O nome de utilizador só pode conter letras, números e underscores";
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return "Por favor, insira um email válido";
     }
     return null;
   };
@@ -37,12 +34,12 @@ const Auth = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate username
-    const usernameError = validateUsername(username);
-    if (usernameError) {
+    // Validate email
+    const emailError = validateEmail(email);
+    if (emailError) {
       toast({
         title: "Erro de validação",
-        description: usernameError,
+        description: emailError,
         variant: "destructive",
       });
       return;
@@ -62,30 +59,33 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('auth', {
-        body: {
-          username: username.toLowerCase(),
+      if (isSignUp) {
+        // Sign up
+        const { data, error } = await supabase.auth.signUp({
+          email,
           password,
-          action: isSignUp ? 'register' : 'login'
-        }
-      });
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+        toast({
+          title: "Registro bem-sucedido!",
+          description: "Por favor, verifique seu email para confirmar seu cadastro.",
+        });
+        setIsSignUp(false);
+      } else {
+        // Sign in
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      if (data.success) {
-        if (isSignUp) {
-          toast({
-            title: "Registro bem-sucedido!",
-            description: "Por favor, faça login para continuar.",
-          });
-          setIsSignUp(false);
-        } else {
-          navigate('/');
-        }
+        if (error) throw error;
+
+        navigate('/');
       }
     } catch (error: any) {
       toast({
@@ -112,8 +112,7 @@ const Auth = () => {
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
-              O nome de utilizador deve ter pelo menos 3 caracteres e só pode conter letras, números e underscores.
-              A senha deve ter pelo menos 6 caracteres.
+              O email deve ser válido e a senha deve ter pelo menos 6 caracteres.
             </AlertDescription>
           </Alert>
         )}
@@ -121,16 +120,14 @@ const Auth = () => {
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome de utilizador
+              Email
             </label>
             <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="seu_username"
-              pattern="[a-zA-Z0-9_]+"
-              minLength={3}
+              placeholder="seu@email.com"
             />
           </div>
           
