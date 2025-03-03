@@ -1,45 +1,41 @@
 
-import { motion } from 'framer-motion';
-import { CalendarIcon, LogOut } from 'lucide-react';
-import { format } from 'date-fns';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from './ui/button';
+import { LogOut, CalendarClock } from 'lucide-react';
 
-interface HeaderProps {
-  email: string | undefined;
-  currentMonth: string;
-  setCurrentMonth: (month: string) => void;
-  handleLogout: () => Promise<void>;
-}
+export const Header = () => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
-export const Header = ({ email, currentMonth, setCurrentMonth, handleLogout }: HeaderProps) => {
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
-    <div className="mb-8">
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="flex items-center justify-between mb-6"
-      >
-        <h1 className="text-4xl font-light text-indigo-900 flex items-center gap-2">
-          <CalendarIcon className="w-8 h-8" />
-          Gestor de Explicações
-        </h1>
+    <div className="border-b bg-white shadow-sm">
+      <div className="container mx-auto flex items-center justify-between py-4">
+        <h1 className="text-xl font-bold text-indigo-900">Controle de Explicações</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-indigo-600">{email}</span>
-          <button
-            onClick={handleLogout}
-            className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-            title="Sair"
+          <Button
+            onClick={() => navigate('/agenda')}
+            variant="outline"
+            className="flex items-center gap-2"
           >
-            <LogOut size={20} />
-          </button>
-          <input
-            type="month"
-            value={currentMonth}
-            onChange={(e) => setCurrentMonth(e.target.value)}
-            className="px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+            <CalendarClock size={16} />
+            Agenda Semanal
+          </Button>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <LogOut size={16} />
+            Sair
+          </Button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
