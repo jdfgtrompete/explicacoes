@@ -19,6 +19,8 @@ interface ClassSession {
   duration: number;
   type: 'individual' | 'group';
   notes: string | null;
+  created_at?: string;
+  user_id?: string;
 }
 
 const WeeklySchedule = () => {
@@ -62,7 +64,14 @@ const WeeklySchedule = () => {
           .lte('date', weekEndStr);
         
         if (sessionsError) throw sessionsError;
-        setSessions(sessionsData);
+        
+        // Garantir que o campo 'type' seja always 'individual' ou 'group'
+        const typedSessions = sessionsData.map(session => ({
+          ...session,
+          type: session.type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
+        }));
+        
+        setSessions(typedSessions);
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
         toast.error('Erro ao carregar dados da agenda');
@@ -104,7 +113,15 @@ const WeeklySchedule = () => {
       
       if (error) throw error;
       
-      setSessions(prev => [...prev, data[0]]);
+      if (data && data[0]) {
+        const newSession: ClassSession = {
+          ...data[0],
+          type: data[0].type === 'group' ? 'group' : 'individual'
+        };
+        
+        setSessions(prev => [...prev, newSession]);
+      }
+      
       toast.success('Aula adicionada com sucesso!');
       setIsAddDialogOpen(false);
     } catch (error) {
