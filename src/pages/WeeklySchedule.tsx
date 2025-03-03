@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight, Plus, CalendarClock, AlertCircle } from 'lucide-react';
 import { Student } from '@/types';
 import { Button } from '@/components/ui/button';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, setHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { WeeklyScheduleView } from '@/components/WeeklyScheduleView';
@@ -33,9 +33,12 @@ const WeeklySchedule = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedHour, setSelectedHour] = useState<number | undefined>(undefined);
   
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Segunda-feira
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 }); // Domingo
+  // Segunda-feira como início da semana
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
   
   const formattedDateRange = `${format(weekStart, 'd', { locale: ptBR })} - ${format(weekEnd, 'd \'de\' MMMM, yyyy', { locale: ptBR })}`;
 
@@ -111,6 +114,12 @@ const WeeklySchedule = () => {
     setCurrentWeek(addWeeks(currentWeek, 1));
   };
   
+  const handleOpenAddDialog = (day: Date, hour: number) => {
+    setSelectedDate(day);
+    setSelectedHour(hour);
+    setIsAddDialogOpen(true);
+  };
+  
   const handleAddSession = async (sessionData: {
     studentId: string;
     date: Date;
@@ -124,12 +133,14 @@ const WeeklySchedule = () => {
         return;
       }
       
+      const formattedDate = format(sessionData.date, 'yyyy-MM-dd');
+      
       const { data, error } = await supabase
         .from('class_sessions')
         .insert({
           student_id: sessionData.studentId,
           user_id: user.id,
-          date: format(sessionData.date, 'yyyy-MM-dd'),
+          date: formattedDate,
           duration: sessionData.duration,
           type: sessionData.type,
           notes: sessionData.notes || null
@@ -249,25 +260,20 @@ const WeeklySchedule = () => {
             </Button>
           </div>
           
-          <Button 
-            onClick={() => setIsAddDialogOpen(true)}
-            className="mb-4 flex items-center"
-          >
-            <Plus size={16} className="mr-1" />
-            Adicionar Aula
-          </Button>
-          
           {loading ? (
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             </div>
           ) : (
-            <WeeklyScheduleView 
-              sessions={sessions} 
-              students={students}
-              weekStart={weekStart}
-              onDeleteSession={handleDeleteSession}
-            />
+            <div className="overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
+              <WeeklyScheduleView 
+                sessions={sessions} 
+                students={students}
+                weekStart={weekStart}
+                onDeleteSession={handleDeleteSession}
+                onAddSession={handleOpenAddDialog}
+              />
+            </div>
           )}
         </div>
       )}
@@ -277,6 +283,8 @@ const WeeklySchedule = () => {
         onOpenChange={setIsAddDialogOpen}
         students={students}
         onAddSession={handleAddSession}
+        selectedDate={selectedDate}
+        selectedHour={selectedHour}
       />
     </div>
   );
