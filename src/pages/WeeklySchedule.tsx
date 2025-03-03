@@ -82,8 +82,8 @@ const WeeklySchedule = () => {
       // Garantir que o campo 'type' seja sempre 'individual' ou 'group'
       const typedSessions = (sessionsData || []).map(session => ({
         ...session,
-        type: session.type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
-      }));
+        type: session.type === 'group' ? 'group' : 'individual'
+      })) as ClassSession[];
       
       setSessions(typedSessions);
     } catch (error: any) {
@@ -96,8 +96,12 @@ const WeeklySchedule = () => {
   };
   
   useEffect(() => {
-    fetchData();
-  }, [user, weekStart, weekEnd]);
+    if (user) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, currentWeek]);
   
   const handlePreviousWeek = () => {
     setCurrentWeek(subWeeks(currentWeek, 1));
@@ -137,7 +141,7 @@ const WeeklySchedule = () => {
       if (data && data[0]) {
         const newSession: ClassSession = {
           ...data[0],
-          type: data[0].type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
+          type: data[0].type === 'group' ? 'group' : 'individual'
         };
         
         setSessions(prev => [...prev, newSession]);
@@ -172,9 +176,24 @@ const WeeklySchedule = () => {
     fetchData();
   };
   
-  if (!user) {
-    navigate('/auth');
-    return null;
+  // Caso não esteja autenticado, redirecionar para página de login
+  if (!user && !loading) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso não autorizado</AlertTitle>
+          <AlertDescription>
+            Você precisa estar logado para acessar esta página.
+            <div className="mt-2">
+              <Button variant="default" size="sm" onClick={() => navigate('/auth')}>
+                Ir para login
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
   
   return (
@@ -264,4 +283,3 @@ const WeeklySchedule = () => {
 };
 
 export default WeeklySchedule;
-
