@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, AlertCircle } from 'lucide-react';
 import { Student } from '@/types';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { WeeklyScheduleView } from '@/components/WeeklyScheduleView';
 import { AddScheduleEntryDialog } from '@/components/AddScheduleEntryDialog';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ClassSession {
   id: string;
@@ -30,6 +31,7 @@ const WeeklySchedule = () => {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Segunda-feira
@@ -37,49 +39,63 @@ const WeeklySchedule = () => {
   
   const formattedDateRange = `${format(weekStart, 'd', { locale: ptBR })} - ${format(weekEnd, 'd \'de\' MMMM, yyyy', { locale: ptBR })}`;
 
-  useEffect(() => {
-    if (!user) return;
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
     
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Buscar os alunos
-        const { data: studentsData, error: studentsError } = await supabase
-          .from('students')
-          .select('*')
-          .eq('user_id', user.id);
-        
-        if (studentsError) throw studentsError;
-        setStudents(studentsData);
-        
-        // Buscar as sessões da semana atual
-        const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-        const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-        
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('class_sessions')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('date', weekStartStr)
-          .lte('date', weekEndStr);
-        
-        if (sessionsError) throw sessionsError;
-        
-        // Garantir que o campo 'type' seja always 'individual' ou 'group'
-        const typedSessions = sessionsData.map(session => ({
-          ...session,
-          type: session.type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
-        }));
-        
-        setSessions(typedSessions);
-      } catch (error) {
-        console.error('Erro ao buscar dados:', error);
-        toast.error('Erro ao carregar dados da agenda');
-      } finally {
+    try {
+      if (!user) {
+        setError("Usuário não autenticado");
         setLoading(false);
+        return;
       }
-    };
-    
+      
+      // Buscar os alunos
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (studentsError) {
+        console.error('Erro ao buscar alunos:', studentsError);
+        throw studentsError;
+      }
+      
+      setStudents(studentsData || []);
+      
+      // Buscar as sessões da semana atual
+      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+      
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('class_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', weekStartStr)
+        .lte('date', weekEndStr);
+      
+      if (sessionsError) {
+        console.error('Erro ao buscar sessões:', sessionsError);
+        throw sessionsError;
+      }
+      
+      // Garantir que o campo 'type' seja sempre 'individual' ou 'group'
+      const typedSessions = (sessionsData || []).map(session => ({
+        ...session,
+        type: session.type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
+      }));
+      
+      setSessions(typedSessions);
+    } catch (error: any) {
+      console.error('Erro ao buscar dados:', error);
+      setError(error.message || "Erro de conexão com o servidor");
+      toast.error('Erro ao carregar dados da agenda');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     fetchData();
   }, [user, weekStart, weekEnd]);
   
@@ -99,11 +115,16 @@ const WeeklySchedule = () => {
     notes: string;
   }) => {
     try {
+      if (!user) {
+        toast.error('Você precisa estar autenticado para adicionar aulas');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('class_sessions')
         .insert({
           student_id: sessionData.studentId,
-          user_id: user?.id,
+          user_id: user.id,
           date: format(sessionData.date, 'yyyy-MM-dd'),
           duration: sessionData.duration,
           type: sessionData.type,
@@ -116,7 +137,7 @@ const WeeklySchedule = () => {
       if (data && data[0]) {
         const newSession: ClassSession = {
           ...data[0],
-          type: data[0].type === 'group' ? 'group' : 'individual'
+          type: data[0].type === 'group' ? 'group' : 'individual' as 'individual' | 'group'
         };
         
         setSessions(prev => [...prev, newSession]);
@@ -124,9 +145,9 @@ const WeeklySchedule = () => {
       
       toast.success('Aula adicionada com sucesso!');
       setIsAddDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao adicionar aula:', error);
-      toast.error('Erro ao adicionar aula');
+      toast.error(`Erro ao adicionar aula: ${error.message || 'Falha na conexão'}`);
     }
   };
   
@@ -141,13 +162,18 @@ const WeeklySchedule = () => {
       
       setSessions(prev => prev.filter(session => session.id !== sessionId));
       toast.success('Aula removida com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao remover aula:', error);
-      toast.error('Erro ao remover aula');
+      toast.error(`Erro ao remover aula: ${error.message || 'Falha na conexão'}`);
     }
   };
   
+  const handleRetry = () => {
+    fetchData();
+  };
+  
   if (!user) {
+    navigate('/auth');
     return null;
   }
   
@@ -163,54 +189,69 @@ const WeeklySchedule = () => {
         </Button>
       </div>
       
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <Button 
-            onClick={handlePreviousWeek} 
-            variant="outline" 
-            size="sm"
-            className="flex items-center"
-          >
-            <ChevronLeft className="mr-1" size={16} />
-            Semana Anterior
-          </Button>
-          
-          <h2 className="text-lg font-medium text-indigo-700">
-            {formattedDateRange}
-          </h2>
-          
-          <Button 
-            onClick={handleNextWeek} 
-            variant="outline" 
-            size="sm"
-            className="flex items-center"
-          >
-            Próxima Semana
-            <ChevronRight className="ml-1" size={16} />
-          </Button>
-        </div>
-        
-        <Button 
-          onClick={() => setIsAddDialogOpen(true)}
-          className="mb-4 flex items-center"
-        >
-          <Plus size={16} className="mr-1" />
-          Adicionar Aula
-        </Button>
-        
-        {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      {error ? (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro de conexão</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2">
+              <Button variant="outline" size="sm" onClick={handleRetry}>
+                Tentar novamente
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-6">
+            <Button 
+              onClick={handlePreviousWeek} 
+              variant="outline" 
+              size="sm"
+              className="flex items-center"
+            >
+              <ChevronLeft className="mr-1" size={16} />
+              Semana Anterior
+            </Button>
+            
+            <h2 className="text-lg font-medium text-indigo-700">
+              {formattedDateRange}
+            </h2>
+            
+            <Button 
+              onClick={handleNextWeek} 
+              variant="outline" 
+              size="sm"
+              className="flex items-center"
+            >
+              Próxima Semana
+              <ChevronRight className="ml-1" size={16} />
+            </Button>
           </div>
-        ) : (
-          <WeeklyScheduleView 
-            sessions={sessions} 
-            students={students}
-            weekStart={weekStart}
-            onDeleteSession={handleDeleteSession}
-          />
-        )}
-      </div>
+          
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            className="mb-4 flex items-center"
+          >
+            <Plus size={16} className="mr-1" />
+            Adicionar Aula
+          </Button>
+          
+          {loading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : (
+            <WeeklyScheduleView 
+              sessions={sessions} 
+              students={students}
+              weekStart={weekStart}
+              onDeleteSession={handleDeleteSession}
+            />
+          )}
+        </div>
+      )}
       
       <AddScheduleEntryDialog
         open={isAddDialogOpen}
@@ -223,3 +264,4 @@ const WeeklySchedule = () => {
 };
 
 export default WeeklySchedule;
+
