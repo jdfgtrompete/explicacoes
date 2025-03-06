@@ -61,22 +61,27 @@ const WeeklySchedule = () => {
         throw studentsError;
       }
       
+      console.log("Fetched students:", studentsData);
       setStudents(studentsData || []);
       
       const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+      const weekEndStr = format(endOfWeek(weekStart, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      
+      console.log("Fetching sessions from", weekStartStr, "to", weekEndStr);
       
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('class_sessions')
         .select('*')
         .eq('user_id', user.id)
         .gte('date', weekStartStr)
-        .lte('date', weekEndStr);
+        .lte('date', weekEndStr + 'T23:59:59');
       
       if (sessionsError) {
         console.error('Erro ao buscar sessões:', sessionsError);
         throw sessionsError;
       }
+      
+      console.log("Fetched sessions:", sessionsData);
       
       const typedSessions = (sessionsData || []).map(session => ({
         ...session,
@@ -132,6 +137,7 @@ const WeeklySchedule = () => {
       
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
       console.log("Adding session with date:", dateWithTime);
+      console.log("Adding session for student:", sessionData.studentId);
       
       const { data, error } = await supabase
         .from('class_sessions')
@@ -145,7 +151,12 @@ const WeeklySchedule = () => {
         })
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating session:", error);
+        throw error;
+      }
+      
+      console.log("Created session:", data);
       
       if (data && data[0]) {
         const newSession: ClassSession = {
@@ -158,6 +169,8 @@ const WeeklySchedule = () => {
       
       toast.success('Aula adicionada com sucesso!');
       setIsAddDialogOpen(false);
+      
+      fetchData();
     } catch (error: any) {
       console.error('Erro ao adicionar aula:', error);
       toast.error(`Erro ao adicionar aula: ${error.message || 'Falha na conexão'}`);
@@ -231,7 +244,7 @@ const WeeklySchedule = () => {
         </Alert>
       ) : (
         <div className="bg-white rounded-lg shadow-md p-3">
-          <div className="flex items-center justify-between mb-3 bg-indigo-50 p-2 rounded-md">
+          <div className="flex items-center justify-between mb-3 bg-blue-50 p-2 rounded-md">
             <Button 
               onClick={handlePreviousWeek} 
               variant="outline" 
@@ -242,7 +255,7 @@ const WeeklySchedule = () => {
               Anterior
             </Button>
             
-            <h2 className="text-sm font-medium text-indigo-800">
+            <h2 className="text-sm font-medium text-blue-800">
               {formattedDateRange}
             </h2>
             
@@ -259,7 +272,7 @@ const WeeklySchedule = () => {
           
           {loading ? (
             <div className="flex justify-center p-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-10 text-indigo-400">

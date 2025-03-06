@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { format, addDays, parse, differenceInMinutes } from 'date-fns';
+import { format, addDays, parse, differenceInMinutes, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
 import { Clock, Users, User, Trash2, Plus } from 'lucide-react';
 import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
 
 interface ClassSession {
   id: string;
@@ -26,7 +27,7 @@ interface WeeklyScheduleViewProps {
 // Constants for the schedule display
 const HOURS_START = 8; // 8 AM
 const HOURS_END = 20; // 8 PM
-const MINUTES_PER_PIXEL = 1.5; // How many minutes per pixel height
+const HOUR_HEIGHT = 50; // Height of each hour row in pixels
 
 export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   sessions,
@@ -35,12 +36,12 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   onDeleteSession,
   onAddSession
 }) => {
-  // Create array with weekdays (excluding weekends)
-  const weekDays = Array.from({ length: 5 }, (_, i) => {
+  // Create array with weekdays (including weekends)
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = addDays(weekStart, i);
     return {
       date: day,
-      dayName: format(day, 'EEEE', { locale: ptBR }),
+      dayName: format(day, 'EEE', { locale: ptBR }),
       dayNumber: format(day, 'd', { locale: ptBR }),
       dateStr: format(day, 'yyyy-MM-dd')
     };
@@ -53,7 +54,7 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   };
 
   // Function to get list of students for a group session
-  const getSessionStudents = (sessionStudentId: string) => {
+  const getSessionStudents = (sessionStudentId: string): string[] => {
     if (!sessionStudentId.includes(',')) {
       return [getStudentName(sessionStudentId)];
     }
@@ -64,120 +65,136 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   
   // Get sessions for a specific day
   const getSessionsForDay = (dateStr: string) => {
-    return sessions.filter(session => session.date.startsWith(dateStr))
-      .sort((a, b) => {
-        const timeA = getSessionTime(a.date);
-        const timeB = getSessionTime(b.date);
-        return timeA.localeCompare(timeB);
-      });
+    return sessions.filter(session => {
+      // Parse the session date
+      const sessionDate = parseSessionDateTime(session.date);
+      // Format to match the day string format
+      const sessionDateStr = format(sessionDate, 'yyyy-MM-dd');
+      // Return true if dates match
+      return sessionDateStr === dateStr;
+    });
   };
   
   // Parse time from session date string
   const getSessionTime = (dateStr: string) => {
-    const sessionTimeMatch = dateStr.match(/\d\d:\d\d/);
-    
-    if (sessionTimeMatch) {
-      return sessionTimeMatch[0];
-    } else if (dateStr.includes('T')) {
-      const timePart = dateStr.split('T')[1];
-      if (timePart) {
-        return timePart.substring(0, 5);
-      }
+    try {
+      const date = new Date(dateStr);
+      return format(date, 'HH:mm');
+    } catch (e) {
+      console.error("Error parsing date:", dateStr, e);
+      return "00:00";
     }
-    
-    return '00:00';
   };
 
   // Parse date and time from date string
   const parseSessionDateTime = (dateStr: string): Date => {
-    if (dateStr.includes('T')) {
+    try {
       return new Date(dateStr);
+    } catch (e) {
+      console.error("Error parsing datetime:", dateStr, e);
+      return new Date();
     }
-    
-    const datePart = dateStr.split(' ')[0];
-    const timePart = getSessionTime(dateStr);
-    return parse(`${datePart} ${timePart}`, 'yyyy-MM-dd HH:mm', new Date());
   };
   
-  // Calculate position and height for a session
-  const getSessionStyle = (session: ClassSession) => {
+  // Calculate position for a session
+  const getSessionStyle = (session: ClassSession, dayColumn: number) => {
     const sessionDate = parseSessionDateTime(session.date);
     const sessionHour = sessionDate.getHours();
     const sessionMinute = sessionDate.getMinutes();
     
     // Calculate top position based on time
-    const minutesSinceDayStart = (sessionHour - HOURS_START) * 60 + sessionMinute;
-    const topPosition = minutesSinceDayStart / MINUTES_PER_PIXEL;
+    const timePosition = (sessionHour - HOURS_START) * HOUR_HEIGHT + (sessionMinute / 60) * HOUR_HEIGHT;
     
     // Calculate height based on duration
-    const durationInMinutes = session.duration * 60;
-    const height = durationInMinutes / MINUTES_PER_PIXEL;
+    const heightValue = session.duration * HOUR_HEIGHT;
     
     return {
-      top: `${topPosition}px`,
-      height: `${height}px`,
       position: 'absolute' as const,
-      width: '95%',
-      left: '2.5%'
+      top: `${timePosition}px`,
+      height: `${heightValue}px`,
+      left: '2px',
+      right: '2px',
+      zIndex: 10
     };
+  };
+
+  // Get background color based on session type
+  const getSessionColor = (session: ClassSession) => {
+    if (session.type === 'individual') {
+      return 'bg-blue-100 border-blue-300';
+    } else {
+      return 'bg-green-100 border-green-300';
+    }
   };
   
   return (
-    <div className="grid grid-cols-5 gap-1 bg-white rounded-lg shadow-sm">
-      {/* Header with weekdays */}
-      {weekDays.map((day, index) => (
-        <div key={`header-${index}`} className="text-center p-1 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-sm border-b border-indigo-200">
-          <div className="capitalize font-bold text-indigo-800">{day.dayName}</div>
-          <div className="text-indigo-600">{day.dayNumber}</div>
+    <div className="overflow-auto h-full border border-gray-300 rounded-lg">
+      <div className="min-w-[800px] relative">
+        {/* Header row with days */}
+        <div className="grid grid-cols-8 border-b sticky top-0 z-20 bg-white">
+          <div className="p-2 border-r font-bold text-center bg-blue-600 text-white">
+            Hora
+          </div>
+          {weekDays.map((day, index) => (
+            <div 
+              key={`header-${index}`} 
+              className="p-2 border-r font-bold text-center bg-blue-600 text-white"
+            >
+              <div>{day.dayName}</div>
+              <div>{day.dayNumber}</div>
+            </div>
+          ))}
         </div>
-      ))}
-      
-      {/* Day content */}
-      {weekDays.map((day, dayIndex) => {
-        const daySessions = getSessionsForDay(day.dateStr);
-        const dayHeight = (HOURS_END - HOURS_START) * 60 / MINUTES_PER_PIXEL;
         
-        return (
-          <div 
-            key={`day-${dayIndex}`}
-            className="relative border-r border-indigo-100 hover:bg-indigo-50/50 transition-colors"
-            style={{ height: `${dayHeight}px` }}
-          >
-            {/* Time indicators */}
-            {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => (
+        {/* Time grid */}
+        <div className="relative">
+          {/* Hour rows */}
+          {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => {
+            const hour = HOURS_START + i;
+            return (
               <div 
-                key={`time-${i}`}
-                className="border-t border-indigo-100 text-[9px] text-indigo-300"
-                style={{ 
-                  position: 'absolute',
-                  top: `${i * 60 / MINUTES_PER_PIXEL}px`,
-                  width: '100%',
-                  pointerEvents: 'none'
-                }}
+                key={`hour-${hour}`} 
+                className="grid grid-cols-8 border-b"
+                style={{ height: `${HOUR_HEIGHT}px` }}
               >
-                {i === 0 ? null : <span className="ml-1">{HOURS_START + i}:00</span>}
+                {/* Hour cell */}
+                <div className="border-r p-1 text-center font-medium bg-gray-100">
+                  {hour}:00
+                </div>
+                
+                {/* Day cells */}
+                {weekDays.map((day, dayIndex) => (
+                  <div 
+                    key={`cell-${hour}-${dayIndex}`}
+                    className="border-r relative hover:bg-blue-50 cursor-pointer"
+                    onClick={() => onAddSession(day.date, hour)}
+                  >
+                    {/* This is just the empty cell */}
+                  </div>
+                ))}
               </div>
-            ))}
-
-            {/* Empty state */}
-            {daySessions.length === 0 ? (
-              <Button
-                variant="ghost"
-                onClick={() => onAddSession(day.date, 9)}
-                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-auto p-1 opacity-50 hover:opacity-100"
-              >
-                <Plus size={14} />
-              </Button>
-            ) : (
-              <>
+            );
+          })}
+          
+          {/* Session blocks */}
+          {weekDays.map((day, dayIndex) => {
+            const daySessions = getSessionsForDay(day.dateStr);
+            return (
+              <React.Fragment key={`sessions-day-${dayIndex}`}>
                 {daySessions.map(session => (
                   <div 
                     key={session.id}
-                    style={getSessionStyle(session)}
-                    className="p-1 bg-indigo-100 rounded-md shadow-sm hover:shadow-md transition-all border border-indigo-200 overflow-hidden"
+                    style={getSessionStyle(session, dayIndex)}
+                    className={cn(
+                      "absolute rounded border shadow-sm p-1 mx-1",
+                      getSessionColor(session),
+                      "hover:shadow-md transition-shadow overflow-hidden",
+                      // Position in the correct day column (skip the first hour column + the day index)
+                      `left-[calc(${(dayIndex + 1) * (100 / 8)}%)] w-[calc(${100 / 8}% - 8px)]`
+                    )}
                   >
                     <div className="flex justify-between items-start">
-                      <div className="font-medium text-xs text-indigo-800 truncate max-w-[120px]">
+                      <div className="font-medium text-xs truncate max-w-[80%]">
                         {session.type === 'individual' 
                           ? getStudentName(session.student_id)
                           : getSessionStudents(session.student_id).join(', ')
@@ -196,14 +213,14 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
                       </Button>
                     </div>
                     
-                    <div className="flex items-center gap-1 text-[10px] text-indigo-600 mt-1">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-600 mt-1">
                       <Clock size={10} />
                       <span>{getSessionTime(session.date)}</span>
                       <span className="mx-1">•</span>
                       <span>{session.duration}h</span>
                     </div>
                     
-                    <div className="flex items-center text-[10px] text-indigo-600 mt-1">
+                    <div className="flex items-center text-[10px] text-gray-600 mt-1">
                       {session.type === 'individual' ? (
                         <User size={10} className="mr-1" />
                       ) : (
@@ -213,24 +230,17 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
                     </div>
                     
                     {session.notes && (
-                      <div className="text-[10px] text-indigo-500 mt-1 bg-indigo-50 p-1 rounded truncate">
+                      <div className="text-[10px] mt-1 bg-white/60 p-1 rounded truncate">
                         {session.notes}
                       </div>
                     )}
                   </div>
                 ))}
-                <Button
-                  variant="ghost"
-                  onClick={() => onAddSession(day.date, 9)}
-                  className="absolute bottom-2 right-2 h-auto p-1 opacity-50 hover:opacity-100"
-                >
-                  <Plus size={12} />
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      })}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
