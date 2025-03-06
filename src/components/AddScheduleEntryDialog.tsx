@@ -49,6 +49,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   const [date, setDate] = useState<Date | undefined>(selectedDate || new Date());
   const [studentId, setStudentId] = useState<string>('');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [hour, setHour] = useState<number>(selectedHour || 9);
+  const [minute, setMinute] = useState<number>(0);
   const [duration, setDuration] = useState<number>(1);
   const [type, setType] = useState<'individual' | 'group'>('individual');
   const [notes, setNotes] = useState<string>('');
@@ -57,6 +59,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   useEffect(() => {
     if (open && selectedDate) {
       setDate(selectedDate);
+      setHour(selectedHour || 9);
+      setMinute(0);
       setDuration(1);
     }
   }, [open, selectedDate, selectedHour]);
@@ -78,9 +82,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
     
     // Add time to the date
     const dateTime = new Date(date);
-    if (selectedHour !== undefined) {
-      dateTime.setHours(selectedHour, 0, 0, 0);
-    }
+    dateTime.setHours(hour, minute, 0, 0);
     
     console.log("Submitting with date:", dateTime, "and student ID:", finalStudentId);
     
@@ -99,6 +101,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   const resetForm = () => {
     setStudentId('');
     setSelectedStudents([]);
+    setHour(9);
+    setMinute(0);
     setDuration(1);
     setType('individual');
     setNotes('');
@@ -114,18 +118,56 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[300px] p-4 max-h-[90vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center text-xs">
+      <DialogContent className="sm:max-w-[280px] p-3 max-h-[90vh] overflow-auto bg-white">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex items-center text-xs text-indigo-800">
             <CalendarClock className="mr-1" size={14} />
             Adicionar Aula
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="text-xs font-medium">
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <div className="text-xs font-medium text-indigo-700 bg-indigo-50 p-1 rounded">
             {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-            {selectedHour !== undefined && ` às ${selectedHour}:00`}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="hour" className="text-xs flex items-center">
+                <Clock size={10} className="mr-1" />
+                Hora
+              </Label>
+              <Select value={hour.toString()} onValueChange={(value) => setHour(parseInt(value))}>
+                <SelectTrigger id="hour" className="h-6 text-[10px]">
+                  <SelectValue placeholder="Hora" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 13 }, (_, i) => i + 8).map(h => (
+                    <SelectItem key={h} value={h.toString()} className="text-[10px]">
+                      {h}:00
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-1">
+              <Label htmlFor="duration" className="text-xs flex items-center">
+                <Clock size={10} className="mr-1" />
+                Duração
+              </Label>
+              <Select value={duration.toString()} onValueChange={(value) => setDuration(parseFloat(value))}>
+                <SelectTrigger id="duration" className="h-6 text-[10px]">
+                  <SelectValue placeholder="Duração" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.5" className="text-[10px]">0.5h</SelectItem>
+                  <SelectItem value="1" className="text-[10px]">1h</SelectItem>
+                  <SelectItem value="1.5" className="text-[10px]">1.5h</SelectItem>
+                  <SelectItem value="2" className="text-[10px]">2h</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <div className="space-y-1">
@@ -177,7 +219,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
           ) : (
             <div className="space-y-1">
               <Label className="text-xs">Alunos da Turma</Label>
-              <div className="border rounded-md p-1 h-[70px] overflow-y-auto">
+              <div className="border rounded-md p-1 h-[70px] overflow-y-auto bg-indigo-50/50">
                 {students.map(student => (
                   <div key={student.id} className="flex items-center space-x-1 py-0.5">
                     <Checkbox
@@ -200,24 +242,6 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
               )}
             </div>
           )}
-          
-          <div className="space-y-1">
-            <Label htmlFor="duration" className="flex items-center text-xs">
-              <Clock size={10} className="mr-1" />
-              Duração (horas)
-            </Label>
-            <Select value={duration.toString()} onValueChange={(value) => setDuration(parseFloat(value))}>
-              <SelectTrigger id="duration" className="h-6 text-[10px]">
-                <SelectValue placeholder="Duração" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0.5" className="text-[10px]">0.5</SelectItem>
-                <SelectItem value="1" className="text-[10px]">1</SelectItem>
-                <SelectItem value="1.5" className="text-[10px]">1.5</SelectItem>
-                <SelectItem value="2" className="text-[10px]">2</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           
           <div className="space-y-1">
             <Label htmlFor="notes" className="text-xs">Observações</Label>

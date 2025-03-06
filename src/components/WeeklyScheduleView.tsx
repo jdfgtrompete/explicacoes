@@ -23,9 +23,6 @@ interface WeeklyScheduleViewProps {
   onAddSession: (day: Date, hour: number) => void;
 }
 
-// Hours from 8 AM to 8 PM
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
-
 export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   sessions,
   students,
@@ -33,7 +30,7 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   onDeleteSession,
   onAddSession
 }) => {
-  // Criar um array com os dias da semana (excluindo finais de semana)
+  // Create array with weekdays (excluding weekends)
   const weekDays = Array.from({ length: 5 }, (_, i) => {
     const day = addDays(weekStart, i);
     return {
@@ -44,13 +41,13 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
     };
   });
   
-  // Função para obter o nome do aluno pelo ID
+  // Function to get student name by ID
   const getStudentName = (studentId: string): string => {
     const student = students.find(s => s.id === studentId);
     return student ? student.name : 'Aluno Desconhecido';
   };
 
-  // Função para obter a lista de alunos para uma sessão em grupo
+  // Function to get list of students for a group session
   const getSessionStudents = (sessionStudentId: string) => {
     if (!sessionStudentId.includes(',')) {
       return [getStudentName(sessionStudentId)];
@@ -60,98 +57,110 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
     return studentIds.map(id => getStudentName(id.trim()));
   };
   
-  // Verifica se há uma sessão em um determinado horário e dia
-  const getSessionAtTime = (dateStr: string, hour: number) => {
-    return sessions.find(session => {
-      const sessionDate = session.date;
-      const sessionTimeMatch = sessionDate.match(/\d\d:\d\d/);
-      
-      let sessionHour = 0;
-      if (sessionTimeMatch) {
-        sessionHour = parseInt(sessionTimeMatch[0].split(':')[0]);
-      } else if (sessionDate.includes('T')) {
-        sessionHour = parseInt(sessionDate.split('T')[1]?.split(':')[0] || '0');
-      } 
-      
-      return sessionDate.startsWith(dateStr) && sessionHour === hour;
+  // Get sessions for a specific day
+  const getSessionsForDay = (dateStr: string) => {
+    return sessions.filter(session => {
+      return session.date.startsWith(dateStr);
     });
   };
   
+  // Parse time from session date string
+  const getSessionTime = (dateStr: string) => {
+    const sessionTimeMatch = dateStr.match(/\d\d:\d\d/);
+    
+    if (sessionTimeMatch) {
+      return sessionTimeMatch[0];
+    } else if (dateStr.includes('T')) {
+      const timePart = dateStr.split('T')[1];
+      if (timePart) {
+        return timePart.substring(0, 5);
+      }
+    }
+    
+    return '00:00';
+  };
+  
   return (
-    <div className="grid grid-cols-5 gap-1">
-      {/* Header com os dias da semana */}
+    <div className="grid grid-cols-5 gap-2 bg-white rounded-lg shadow-sm">
+      {/* Header with weekdays */}
       {weekDays.map((day, index) => (
-        <div key={`header-${index}`} className="text-center p-1 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-xs">
-          <div className="capitalize">{day.dayName}</div>
-          <div>{day.dayNumber}</div>
+        <div key={`header-${index}`} className="text-center p-2 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-sm border-b border-indigo-200">
+          <div className="capitalize font-bold text-indigo-800">{day.dayName}</div>
+          <div className="text-indigo-600">{day.dayNumber}</div>
         </div>
       ))}
       
-      {/* Blocos de hora */}
-      {HOURS.map(hour => (
-        <React.Fragment key={`hour-row-${hour}`}>
-          {weekDays.map((day, dayIndex) => {
-            const session = getSessionAtTime(day.dateStr, hour);
-            
-            return (
+      {/* Day content */}
+      {weekDays.map((day, dayIndex) => {
+        const daySessions = getSessionsForDay(day.dateStr);
+        
+        return (
+          <div 
+            key={`day-${dayIndex}`}
+            className="min-h-[120px] p-2 border-r border-indigo-100 hover:bg-indigo-50/50 transition-colors"
+          >
+            {daySessions.length === 0 ? (
               <div 
-                key={`${day.dateStr}-${hour}`} 
-                className={`border border-gray-200 min-h-[35px] ${
-                  session ? 'bg-indigo-50' : 'bg-white hover:bg-gray-50 cursor-pointer'
-                }`}
-                onClick={() => {
-                  if (!session) {
-                    onAddSession(day.date, hour);
-                  }
-                }}
+                className="h-full flex items-center justify-center text-indigo-300 text-xs cursor-pointer rounded-md border border-dashed border-indigo-200 hover:border-indigo-400 transition-all"
+                onClick={() => onAddSession(day.date, 9)} // Default 9 AM for new sessions
               >
-                <div className="text-[10px] text-gray-500 border-b border-gray-100 px-1">
-                  {hour}:00
-                </div>
-                
-                {session && (
-                  <div className="p-1">
-                    <div className="font-medium text-[10px] text-indigo-800 truncate">
-                      {session.type === 'individual' 
-                        ? getStudentName(session.student_id)
-                        : getSessionStudents(session.student_id).join(', ')
-                      }
+                Clique para adicionar aula
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {daySessions.map(session => (
+                  <div 
+                    key={session.id}
+                    className="p-2 bg-indigo-100 rounded-md shadow-sm hover:shadow-md transition-all border border-indigo-200"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="font-medium text-xs text-indigo-800 truncate max-w-[120px]">
+                        {session.type === 'individual' 
+                          ? getStudentName(session.student_id)
+                          : getSessionStudents(session.student_id).join(', ')
+                        }
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSession(session.id);
+                        }}
+                      >
+                        <Trash2 size={10} />
+                      </Button>
                     </div>
-                    <div className="flex items-center text-[10px] text-gray-600">
-                      <Clock size={8} className="mr-1" />
+                    
+                    <div className="flex items-center gap-1 text-[10px] text-indigo-600 mt-1">
+                      <Clock size={10} />
+                      <span>{getSessionTime(session.date)}</span>
+                      <span className="mx-1">•</span>
                       <span>{session.duration}h</span>
                     </div>
-                    <div className="flex items-center text-[10px] text-gray-600">
+                    
+                    <div className="flex items-center text-[10px] text-indigo-600 mt-1">
                       {session.type === 'individual' ? (
-                        <User size={8} className="mr-1" />
+                        <User size={10} className="mr-1" />
                       ) : (
-                        <Users size={8} className="mr-1" />
+                        <Users size={10} className="mr-1" />
                       )}
-                      <span className="truncate">{session.type === 'individual' ? 'Individual' : 'Coletiva'}</span>
+                      <span>{session.type === 'individual' ? 'Individual' : 'Coletiva'}</span>
                     </div>
+                    
                     {session.notes && (
-                      <div className="text-[10px] text-gray-500 truncate">
+                      <div className="text-[10px] text-indigo-500 mt-1 bg-indigo-50 p-1 rounded truncate">
                         {session.notes}
                       </div>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 text-red-500 hover:text-red-700 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteSession(session.id);
-                      }}
-                    >
-                      <Trash2 size={8} />
-                    </Button>
                   </div>
-                )}
+                ))}
               </div>
-            );
-          })}
-        </React.Fragment>
-      ))}
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

@@ -130,15 +130,15 @@ const WeeklySchedule = () => {
         return;
       }
       
-      const dateWithHour = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
-      console.log("Adding session with date:", dateWithHour);
+      const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
+      console.log("Adding session with date:", dateWithTime);
       
       const { data, error } = await supabase
         .from('class_sessions')
         .insert({
           student_id: sessionData.studentId,
           user_id: user.id,
-          date: dateWithHour,
+          date: dateWithTime,
           duration: sessionData.duration,
           type: sessionData.type,
           notes: sessionData.notes || null
@@ -205,10 +205,10 @@ const WeeklySchedule = () => {
   }
   
   return (
-    <div className="container mx-auto py-4 px-2">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-indigo-800 flex items-center">
-          <CalendarClock className="mr-2" />
+    <div className="container mx-auto py-3 px-2">
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-lg font-bold text-indigo-800 flex items-center">
+          <CalendarClock className="mr-2" size={18} />
           Agenda Semanal
         </h1>
         <Button onClick={() => navigate('/')} variant="outline" size="sm">
@@ -217,7 +217,7 @@ const WeeklySchedule = () => {
       </div>
       
       {error ? (
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="mb-3">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Erro de conexão</AlertTitle>
           <AlertDescription>
@@ -231,18 +231,18 @@ const WeeklySchedule = () => {
         </Alert>
       ) : (
         <div className="bg-white rounded-lg shadow-md p-3">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 bg-indigo-50 p-2 rounded-md">
             <Button 
               onClick={handlePreviousWeek} 
               variant="outline" 
               size="sm"
-              className="flex items-center text-xs"
+              className="flex items-center text-xs bg-white"
             >
               <ChevronLeft className="mr-1" size={14} />
               Anterior
             </Button>
             
-            <h2 className="text-sm font-medium text-indigo-700">
+            <h2 className="text-sm font-medium text-indigo-800">
               {formattedDateRange}
             </h2>
             
@@ -250,7 +250,7 @@ const WeeklySchedule = () => {
               onClick={handleNextWeek} 
               variant="outline" 
               size="sm"
-              className="flex items-center text-xs"
+              className="flex items-center text-xs bg-white"
             >
               Próxima
               <ChevronRight className="ml-1" size={14} />
@@ -261,8 +261,24 @@ const WeeklySchedule = () => {
             <div className="flex justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
             </div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-10 text-indigo-400">
+              <CalendarClock size={40} className="mx-auto mb-2 opacity-50" />
+              <p>Nenhuma aula agendada para esta semana</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  const now = new Date();
+                  handleOpenAddDialog(now, now.getHours());
+                }}
+              >
+                Adicionar aula
+              </Button>
+            </div>
           ) : (
-            <div className="h-[calc(100vh-170px)] overflow-auto">
+            <div className="h-[calc(100vh-170px)]">
               <WeeklyScheduleView 
                 sessions={sessions} 
                 students={students}
