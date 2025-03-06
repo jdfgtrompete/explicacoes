@@ -133,14 +133,15 @@ const WeeklySchedule = () => {
         return;
       }
       
-      const formattedDate = format(sessionData.date, 'yyyy-MM-dd');
+      // Format date with hour
+      const dateWithHour = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
       
       const { data, error } = await supabase
         .from('class_sessions')
         .insert({
           student_id: sessionData.studentId,
           user_id: user.id,
-          date: formattedDate,
+          date: dateWithHour,
           duration: sessionData.duration,
           type: sessionData.type,
           notes: sessionData.notes || null
@@ -190,7 +191,7 @@ const WeeklySchedule = () => {
   // Caso não esteja autenticado, redirecionar para página de login
   if (!user && !loading) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div className="container mx-auto py-4 px-2">
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Acesso não autorizado</AlertTitle>
@@ -208,13 +209,13 @@ const WeeklySchedule = () => {
   }
   
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-indigo-800 flex items-center">
+    <div className="container mx-auto py-4 px-2">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-indigo-800 flex items-center">
           <CalendarClock className="mr-2" />
           Agenda Semanal
         </h1>
-        <Button onClick={() => navigate('/')} variant="outline">
+        <Button onClick={() => navigate('/')} variant="outline" size="sm">
           Voltar ao início
         </Button>
       </div>
@@ -233,19 +234,19 @@ const WeeklySchedule = () => {
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-lg shadow-md p-3">
+          <div className="flex items-center justify-between mb-3">
             <Button 
               onClick={handlePreviousWeek} 
               variant="outline" 
               size="sm"
-              className="flex items-center"
+              className="flex items-center text-xs"
             >
-              <ChevronLeft className="mr-1" size={16} />
-              Semana Anterior
+              <ChevronLeft className="mr-1" size={14} />
+              Anterior
             </Button>
             
-            <h2 className="text-lg font-medium text-indigo-700">
+            <h2 className="text-sm font-medium text-indigo-700">
               {formattedDateRange}
             </h2>
             
@@ -253,19 +254,19 @@ const WeeklySchedule = () => {
               onClick={handleNextWeek} 
               variant="outline" 
               size="sm"
-              className="flex items-center"
+              className="flex items-center text-xs"
             >
-              Próxima Semana
-              <ChevronRight className="ml-1" size={16} />
+              Próxima
+              <ChevronRight className="ml-1" size={14} />
             </Button>
           </div>
           
           {loading ? (
-            <div className="flex justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="flex justify-center p-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
+            <div className="h-[calc(100vh-170px)] overflow-auto">
               <WeeklyScheduleView 
                 sessions={sessions} 
                 students={students}

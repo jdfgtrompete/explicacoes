@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format, addDays, parse, isWeekend } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
 import { Clock, Users, User, Trash2 } from 'lucide-react';
@@ -60,27 +60,26 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
     return studentIds.map(id => getStudentName(id.trim()));
   };
   
-  // Verifica se há uma sessão em um determinado horário
+  // Verifica se há uma sessão em um determinado horário e dia
   const getSessionAtTime = (dateStr: string, hour: number) => {
     return sessions.find(session => {
-      const sessionTime = new Date(`${session.date}T${hour.toString().padStart(2, '0')}:00:00`);
-      const sessionEndTime = new Date(sessionTime.getTime() + session.duration * 60 * 60 * 1000);
+      const sessionDate = session.date;
+      const sessionTimeMatch = session.date.match(/\d\d:\d\d/);
+      const sessionHour = sessionTimeMatch 
+        ? parseInt(sessionTimeMatch[0].split(':')[0]) 
+        : parseInt(session.date.split('T')[1]?.split(':')[0] || '0');
       
-      const timeToCheck = new Date(`${dateStr}T${hour.toString().padStart(2, '0')}:00:00`);
-      
-      return session.date === dateStr && 
-             timeToCheck >= sessionTime && 
-             timeToCheck < sessionEndTime;
+      return sessionDate.startsWith(dateStr) && sessionHour === hour;
     });
   };
   
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-5 gap-1">
       {/* Header com os dias da semana */}
       {weekDays.map((day, index) => (
-        <div key={`header-${index}`} className="text-center p-2 bg-indigo-100 rounded-t-lg font-medium sticky top-0">
+        <div key={`header-${index}`} className="text-center p-1 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-sm">
           <div className="capitalize">{day.dayName}</div>
-          <div className="text-lg">{day.dayNumber}</div>
+          <div>{day.dayNumber}</div>
         </div>
       ))}
       
@@ -93,7 +92,7 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
             return (
               <div 
                 key={`${day.dateStr}-${hour}`} 
-                className={`border border-gray-200 min-h-[60px] ${
+                className={`border border-gray-200 min-h-[40px] ${
                   session ? 'bg-indigo-50' : 'bg-white hover:bg-gray-50 cursor-pointer'
                 }`}
                 onClick={() => {
@@ -108,39 +107,39 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
                 
                 {session && (
                   <div className="p-1">
-                    <div className="font-medium text-sm text-indigo-800">
+                    <div className="font-medium text-xs text-indigo-800 truncate">
                       {session.type === 'individual' 
                         ? getStudentName(session.student_id)
                         : getSessionStudents(session.student_id).join(', ')
                       }
                     </div>
                     <div className="flex items-center text-xs text-gray-600">
-                      <Clock size={12} className="mr-1" />
-                      <span>Duração: {session.duration}h</span>
+                      <Clock size={10} className="mr-1" />
+                      <span>{session.duration}h</span>
                     </div>
                     <div className="flex items-center text-xs text-gray-600">
                       {session.type === 'individual' ? (
-                        <User size={12} className="mr-1" />
+                        <User size={10} className="mr-1" />
                       ) : (
-                        <Users size={12} className="mr-1" />
+                        <Users size={10} className="mr-1" />
                       )}
-                      <span>{session.type === 'individual' ? 'Individual' : 'Coletiva'}</span>
+                      <span className="truncate">{session.type === 'individual' ? 'Individual' : 'Coletiva'}</span>
                     </div>
                     {session.notes && (
-                      <div className="text-xs text-gray-500 mt-1 truncate">
+                      <div className="text-xs text-gray-500 truncate">
                         {session.notes}
                       </div>
                     )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-1 h-5 text-red-500 hover:text-red-700 p-0"
+                      className="h-4 text-red-500 hover:text-red-700 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteSession(session.id);
                       }}
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={10} />
                     </Button>
                   </div>
                 )}
