@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +35,6 @@ const WeeklySchedule = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedHour, setSelectedHour] = useState<number | undefined>(undefined);
   
-  // Segunda-feira como início da semana
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
   
@@ -53,7 +51,6 @@ const WeeklySchedule = () => {
         return;
       }
       
-      // Buscar os alunos
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -66,7 +63,6 @@ const WeeklySchedule = () => {
       
       setStudents(studentsData || []);
       
-      // Buscar as sessões da semana atual
       const weekStartStr = format(weekStart, 'yyyy-MM-dd');
       const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
       
@@ -82,7 +78,6 @@ const WeeklySchedule = () => {
         throw sessionsError;
       }
       
-      // Garantir que o campo 'type' seja sempre 'individual' ou 'group'
       const typedSessions = (sessionsData || []).map(session => ({
         ...session,
         type: session.type === 'group' ? 'group' : 'individual'
@@ -115,7 +110,9 @@ const WeeklySchedule = () => {
   };
   
   const handleOpenAddDialog = (day: Date, hour: number) => {
-    setSelectedDate(day);
+    const selectedDateTime = new Date(day);
+    selectedDateTime.setHours(hour, 0, 0, 0);
+    setSelectedDate(selectedDateTime);
     setSelectedHour(hour);
     setIsAddDialogOpen(true);
   };
@@ -133,8 +130,8 @@ const WeeklySchedule = () => {
         return;
       }
       
-      // Format date with hour
       const dateWithHour = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
+      console.log("Adding session with date:", dateWithHour);
       
       const { data, error } = await supabase
         .from('class_sessions')
@@ -188,7 +185,6 @@ const WeeklySchedule = () => {
     fetchData();
   };
   
-  // Caso não esteja autenticado, redirecionar para página de login
   if (!user && !loading) {
     return (
       <div className="container mx-auto py-4 px-2">

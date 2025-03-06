@@ -47,7 +47,6 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   selectedHour
 }) => {
   const [date, setDate] = useState<Date | undefined>(selectedDate || new Date());
-  const [hour, setHour] = useState<number>(selectedHour || 8);
   const [studentId, setStudentId] = useState<string>('');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [duration, setDuration] = useState<number>(1);
@@ -56,9 +55,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   
   // Reset form when dialog is opened with a selected date and hour
   useEffect(() => {
-    if (open && selectedDate && selectedHour !== undefined) {
+    if (open && selectedDate) {
       setDate(selectedDate);
-      setHour(selectedHour);
       setDuration(1);
     }
   }, [open, selectedDate, selectedHour]);
@@ -80,7 +78,11 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
     
     // Add time to the date
     const dateTime = new Date(date);
-    dateTime.setHours(hour, 0, 0, 0);
+    if (selectedHour !== undefined) {
+      dateTime.setHours(selectedHour, 0, 0, 0);
+    }
+    
+    console.log("Submitting with date:", dateTime, "and student ID:", finalStudentId);
     
     onAddSession({
       studentId: finalStudentId,
@@ -110,42 +112,20 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
     );
   };
   
-  const timeOptions = Array.from({ length: 13 }, (_, i) => i + 8);
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[350px]">
+      <DialogContent className="sm:max-w-[300px] p-4 max-h-[90vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-sm">
-            <CalendarClock className="mr-2" size={16} />
+          <DialogTitle className="flex items-center text-xs">
+            <CalendarClock className="mr-1" size={14} />
             Adicionar Aula
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Data</Label>
-              <div className="border rounded-md p-1 bg-gray-50 text-xs">
-                {date ? format(date, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione a data'}
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="hour" className="text-xs">Hora</Label>
-              <Select value={hour.toString()} onValueChange={(value) => setHour(parseInt(value))}>
-                <SelectTrigger id="hour" className="h-7 text-xs">
-                  <SelectValue placeholder="Hora" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map((time) => (
-                    <SelectItem key={time} value={time.toString()} className="text-xs">
-                      {time}:00
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="text-xs font-medium">
+            {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+            {selectedHour !== undefined && ` às ${selectedHour}:00`}
           </div>
           
           <div className="space-y-1">
@@ -158,18 +138,18 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                   setType('individual');
                   setSelectedStudents([]);
                 }}
-                className="flex-1 py-0 h-7 text-xs"
+                className="flex-1 py-0 h-6 text-[10px]"
               >
-                <User size={12} className="mr-1" />
+                <User size={10} className="mr-1" />
                 Individual
               </Button>
               <Button
                 type="button"
                 variant={type === 'group' ? 'default' : 'outline'}
                 onClick={() => setType('group')}
-                className="flex-1 py-0 h-7 text-xs"
+                className="flex-1 py-0 h-6 text-[10px]"
               >
-                <Users size={12} className="mr-1" />
+                <Users size={10} className="mr-1" />
                 Coletiva
               </Button>
             </div>
@@ -182,12 +162,12 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                 value={studentId}
                 onValueChange={setStudentId}
               >
-                <SelectTrigger id="student" className="h-7 text-xs">
+                <SelectTrigger id="student" className="h-6 text-[10px]">
                   <SelectValue placeholder="Selecione um aluno" />
                 </SelectTrigger>
                 <SelectContent>
                   {students.map(student => (
-                    <SelectItem key={student.id} value={student.id} className="text-xs">
+                    <SelectItem key={student.id} value={student.id} className="text-[10px]">
                       {student.name}
                     </SelectItem>
                   ))}
@@ -197,7 +177,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
           ) : (
             <div className="space-y-1">
               <Label className="text-xs">Alunos da Turma</Label>
-              <div className="border rounded-md p-1 h-[90px] overflow-y-auto">
+              <div className="border rounded-md p-1 h-[70px] overflow-y-auto">
                 {students.map(student => (
                   <div key={student.id} className="flex items-center space-x-1 py-0.5">
                     <Checkbox
@@ -208,7 +188,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                     />
                     <Label
                       htmlFor={`student-${student.id}`}
-                      className="text-xs cursor-pointer"
+                      className="text-[10px] cursor-pointer"
                     >
                       {student.name}
                     </Label>
@@ -216,29 +196,27 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                 ))}
               </div>
               {selectedStudents.length === 0 && (
-                <p className="text-[10px] text-red-500">Selecione pelo menos um aluno</p>
+                <p className="text-[8px] text-red-500">Selecione pelo menos um aluno</p>
               )}
             </div>
           )}
           
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="duration" className="flex items-center text-xs">
-                <Clock size={12} className="mr-1" />
-                Duração (horas)
-              </Label>
-              <Select value={duration.toString()} onValueChange={(value) => setDuration(parseFloat(value))}>
-                <SelectTrigger id="duration" className="h-7 text-xs">
-                  <SelectValue placeholder="Duração" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.5" className="text-xs">0.5</SelectItem>
-                  <SelectItem value="1" className="text-xs">1</SelectItem>
-                  <SelectItem value="1.5" className="text-xs">1.5</SelectItem>
-                  <SelectItem value="2" className="text-xs">2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="duration" className="flex items-center text-xs">
+              <Clock size={10} className="mr-1" />
+              Duração (horas)
+            </Label>
+            <Select value={duration.toString()} onValueChange={(value) => setDuration(parseFloat(value))}>
+              <SelectTrigger id="duration" className="h-6 text-[10px]">
+                <SelectValue placeholder="Duração" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0.5" className="text-[10px]">0.5</SelectItem>
+                <SelectItem value="1" className="text-[10px]">1</SelectItem>
+                <SelectItem value="1.5" className="text-[10px]">1.5</SelectItem>
+                <SelectItem value="2" className="text-[10px]">2</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="space-y-1">
@@ -249,7 +227,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="h-10 resize-none text-xs py-1"
+              className="h-10 resize-none text-[10px] py-1"
             />
           </div>
           
@@ -257,13 +235,13 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
             <Button type="button" variant="outline" onClick={() => {
               resetForm();
               onOpenChange(false);
-            }} size="sm" className="h-7 text-xs">
+            }} size="sm" className="h-6 text-[10px]">
               Cancelar
             </Button>
             <Button 
               type="submit" 
               size="sm"
-              className="h-7 text-xs"
+              className="h-6 text-[10px]"
               disabled={type === 'individual' ? !studentId : selectedStudents.length === 0}
             >
               Salvar
