@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parse, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
-import { Clock, Users, User, Trash2 } from 'lucide-react';
+import { Clock, Users, User, Trash2, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface ClassSession {
@@ -22,6 +22,11 @@ interface WeeklyScheduleViewProps {
   onDeleteSession: (sessionId: string) => void;
   onAddSession: (day: Date, hour: number) => void;
 }
+
+// Constants for the schedule display
+const HOURS_START = 8; // 8 AM
+const HOURS_END = 20; // 8 PM
+const MINUTES_PER_PIXEL = 1.5; // How many minutes per pixel height
 
 export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   sessions,
@@ -59,9 +64,12 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
   
   // Get sessions for a specific day
   const getSessionsForDay = (dateStr: string) => {
-    return sessions.filter(session => {
-      return session.date.startsWith(dateStr);
-    });
+    return sessions.filter(session => session.date.startsWith(dateStr))
+      .sort((a, b) => {
+        const timeA = getSessionTime(a.date);
+        const timeB = getSessionTime(b.date);
+        return timeA.localeCompare(timeB);
+      });
   };
   
   // Parse time from session date string
@@ -79,12 +87,46 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
     
     return '00:00';
   };
+
+  // Parse date and time from date string
+  const parseSessionDateTime = (dateStr: string): Date => {
+    if (dateStr.includes('T')) {
+      return new Date(dateStr);
+    }
+    
+    const datePart = dateStr.split(' ')[0];
+    const timePart = getSessionTime(dateStr);
+    return parse(`${datePart} ${timePart}`, 'yyyy-MM-dd HH:mm', new Date());
+  };
+  
+  // Calculate position and height for a session
+  const getSessionStyle = (session: ClassSession) => {
+    const sessionDate = parseSessionDateTime(session.date);
+    const sessionHour = sessionDate.getHours();
+    const sessionMinute = sessionDate.getMinutes();
+    
+    // Calculate top position based on time
+    const minutesSinceDayStart = (sessionHour - HOURS_START) * 60 + sessionMinute;
+    const topPosition = minutesSinceDayStart / MINUTES_PER_PIXEL;
+    
+    // Calculate height based on duration
+    const durationInMinutes = session.duration * 60;
+    const height = durationInMinutes / MINUTES_PER_PIXEL;
+    
+    return {
+      top: `${topPosition}px`,
+      height: `${height}px`,
+      position: 'absolute' as const,
+      width: '95%',
+      left: '2.5%'
+    };
+  };
   
   return (
-    <div className="grid grid-cols-5 gap-2 bg-white rounded-lg shadow-sm">
+    <div className="grid grid-cols-5 gap-1 bg-white rounded-lg shadow-sm">
       {/* Header with weekdays */}
       {weekDays.map((day, index) => (
-        <div key={`header-${index}`} className="text-center p-2 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-sm border-b border-indigo-200">
+        <div key={`header-${index}`} className="text-center p-1 bg-indigo-100 rounded-t-lg font-medium sticky top-0 text-sm border-b border-indigo-200">
           <div className="capitalize font-bold text-indigo-800">{day.dayName}</div>
           <div className="text-indigo-600">{day.dayNumber}</div>
         </div>
@@ -93,25 +135,46 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
       {/* Day content */}
       {weekDays.map((day, dayIndex) => {
         const daySessions = getSessionsForDay(day.dateStr);
+        const dayHeight = (HOURS_END - HOURS_START) * 60 / MINUTES_PER_PIXEL;
         
         return (
           <div 
             key={`day-${dayIndex}`}
-            className="min-h-[120px] p-2 border-r border-indigo-100 hover:bg-indigo-50/50 transition-colors"
+            className="relative border-r border-indigo-100 hover:bg-indigo-50/50 transition-colors"
+            style={{ height: `${dayHeight}px` }}
           >
-            {daySessions.length === 0 ? (
+            {/* Time indicators */}
+            {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => (
               <div 
-                className="h-full flex items-center justify-center text-indigo-300 text-xs cursor-pointer rounded-md border border-dashed border-indigo-200 hover:border-indigo-400 transition-all"
-                onClick={() => onAddSession(day.date, 9)} // Default 9 AM for new sessions
+                key={`time-${i}`}
+                className="border-t border-indigo-100 text-[9px] text-indigo-300"
+                style={{ 
+                  position: 'absolute',
+                  top: `${i * 60 / MINUTES_PER_PIXEL}px`,
+                  width: '100%',
+                  pointerEvents: 'none'
+                }}
               >
-                Clique para adicionar aula
+                {i === 0 ? null : <span className="ml-1">{HOURS_START + i}:00</span>}
               </div>
+            ))}
+
+            {/* Empty state */}
+            {daySessions.length === 0 ? (
+              <Button
+                variant="ghost"
+                onClick={() => onAddSession(day.date, 9)}
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-auto p-1 opacity-50 hover:opacity-100"
+              >
+                <Plus size={14} />
+              </Button>
             ) : (
-              <div className="space-y-2">
+              <>
                 {daySessions.map(session => (
                   <div 
                     key={session.id}
-                    className="p-2 bg-indigo-100 rounded-md shadow-sm hover:shadow-md transition-all border border-indigo-200"
+                    style={getSessionStyle(session)}
+                    className="p-1 bg-indigo-100 rounded-md shadow-sm hover:shadow-md transition-all border border-indigo-200 overflow-hidden"
                   >
                     <div className="flex justify-between items-start">
                       <div className="font-medium text-xs text-indigo-800 truncate max-w-[120px]">
@@ -156,7 +219,14 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
                     )}
                   </div>
                 ))}
-              </div>
+                <Button
+                  variant="ghost"
+                  onClick={() => onAddSession(day.date, 9)}
+                  className="absolute bottom-2 right-2 h-auto p-1 opacity-50 hover:opacity-100"
+                >
+                  <Plus size={12} />
+                </Button>
+              </>
             )}
           </div>
         );
