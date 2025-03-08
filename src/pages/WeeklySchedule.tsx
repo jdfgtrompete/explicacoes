@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { startOfWeek, addWeeks, subWeeks } from 'date-fns';
@@ -11,7 +11,6 @@ import { AuthErrorDisplay } from '@/components/schedule/AuthErrorDisplay';
 import { ErrorDisplay } from '@/components/schedule/ErrorDisplay';
 import { useClassSessions } from '@/hooks/useClassSessions';
 import { useStudents } from '@/hooks/useStudents';
-import { toast } from 'sonner';
 
 const WeeklySchedule = () => {
   const { user } = useAuth();
@@ -23,7 +22,7 @@ const WeeklySchedule = () => {
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   
-  const { students, loading: studentsLoading, error: studentsError, fetchStudents } = useStudents(user?.id);
+  const { students, loading: studentsLoading, error: studentsError } = useStudents(user?.id);
   
   const { 
     sessions, 
@@ -36,15 +35,6 @@ const WeeklySchedule = () => {
   
   const loading = studentsLoading || sessionsLoading;
   const error = studentsError || sessionsError;
-  
-  // Atualizar dados quando o componente montar
-  useEffect(() => {
-    if (user?.id) {
-      console.log("Component mounted, refreshing data...");
-      fetchStudents();
-      fetchSessions();
-    }
-  }, [user?.id, fetchStudents, fetchSessions]);
   
   const handlePreviousWeek = () => {
     setCurrentWeek(subWeeks(currentWeek, 1));
@@ -61,14 +51,7 @@ const WeeklySchedule = () => {
     setIsAddDialogOpen(true);
   };
   
-  const handleRefresh = () => {
-    toast.info("Atualizando dados...");
-    fetchStudents();
-    fetchSessions();
-  };
-  
   const handleRetry = () => {
-    fetchStudents();
     fetchSessions();
   };
   
@@ -82,15 +65,7 @@ const WeeklySchedule = () => {
     const success = await addSession(sessionData);
     if (success) {
       setIsAddDialogOpen(false);
-      // Atualizar dados após adicionar uma sessão
-      fetchSessions();
     }
-  };
-
-  const handleDeleteSession = async (sessionId: string) => {
-    await deleteSession(sessionId);
-    // Atualizar dados após remover uma sessão
-    fetchSessions();
   };
 
   const handleDefaultAddSession = () => {
@@ -104,7 +79,7 @@ const WeeklySchedule = () => {
   
   return (
     <div className="container mx-auto py-3 px-2">
-      <ScheduleHeader title="Agenda Semanal" onRefresh={handleRefresh} />
+      <ScheduleHeader title="Agenda Semanal" />
       
       {error ? (
         <ErrorDisplay error={error} onRetry={handleRetry} />
@@ -121,7 +96,7 @@ const WeeklySchedule = () => {
             sessions={sessions}
             students={students}
             weekStart={weekStart}
-            onDeleteSession={handleDeleteSession}
+            onDeleteSession={deleteSession}
             onAddSession={handleOpenAddDialog}
             onOpenAddDialog={handleDefaultAddSession}
             navigate={navigate}
