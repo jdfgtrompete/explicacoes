@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
   
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -71,7 +71,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
       setLoading(false);
       return { sessions: [] };
     }
-  };
+  }, [userId, weekStart, weekEnd]);
   
   const addSession = async (sessionData: {
     studentId: string;
@@ -119,6 +119,10 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         
         setSessions(prev => [...prev, newSession]);
         toast.success('Aula adicionada com sucesso!');
+        
+        // Atualizamos a lista após adicionar uma sessão
+        await fetchSessions();
+        
         return true;
       }
       
@@ -130,7 +134,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
     }
   };
   
-  const deleteSession = async (sessionId: string) => {
+  const deleteSession = async (sessionId: string): Promise<void> => {
     try {
       const { error } = await supabase
         .from('class_sessions')
@@ -141,11 +145,12 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
       
       setSessions(prev => prev.filter(session => session.id !== sessionId));
       toast.success('Aula removida com sucesso!');
-      return true;
+      
+      // Também atualizamos após remover uma sessão
+      await fetchSessions();
     } catch (error: any) {
       console.error('Erro ao remover aula:', error);
       toast.error(`Erro ao remover aula: ${error.message || 'Falha na conexão'}`);
-      return false;
     }
   };
   
@@ -155,7 +160,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
     } else {
       setLoading(false);
     }
-  }, [userId, currentWeek]);
+  }, [userId, currentWeek, fetchSessions]);
   
   return {
     sessions,

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Student } from '@/types';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ export const useStudents = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -39,7 +39,7 @@ export const useStudents = (userId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
   
   useEffect(() => {
     if (userId) {
@@ -47,7 +47,7 @@ export const useStudents = (userId: string | undefined) => {
     } else {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, fetchStudents]);
   
   return {
     students,
