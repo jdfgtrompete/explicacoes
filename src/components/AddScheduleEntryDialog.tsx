@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -61,11 +62,13 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   useEffect(() => {
     if (open && selectedDate) {
       setDate(selectedDate);
-      setHour(selectedHour || 9);
-      setMinute(0);
+      setHour(selectedDate.getHours() || selectedHour || 9);
+      setMinute(selectedDate.getMinutes() || 0);
       setDuration(1);
       setStudentId('');
       setSelectedStudents([]);
+      setType('individual');
+      setNotes('');
     }
   }, [open, selectedDate, selectedHour]);
   
@@ -78,11 +81,14 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
     // For group classes, combine student IDs
     if (type === 'group' && selectedStudents.length > 0) {
       finalStudentId = selectedStudents.join(',');
-    } else if (type === 'group' && studentId) {
-      finalStudentId = studentId;
     }
     
-    if (!finalStudentId) return;
+    if (!finalStudentId) {
+      console.error("No student selected");
+      return;
+    }
+    
+    console.log("Selected student ID:", finalStudentId);
     
     // Add time to the date
     const dateTime = new Date(date);
@@ -131,31 +137,42 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
             <CalendarClock className="mr-1" size={16} />
             Adicionar Aula
           </DialogTitle>
+          <DialogDescription className="text-xs text-blue-600">
+            {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="text-sm font-medium text-blue-700 bg-blue-50 p-2 rounded">
-            {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-          </div>
-          
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="hour" className="text-xs flex items-center">
                 <Clock size={12} className="mr-1" />
                 Hora
               </Label>
-              <Select value={hour.toString()} onValueChange={(value) => setHour(parseInt(value))}>
-                <SelectTrigger id="hour" className="h-8 text-sm">
-                  <SelectValue placeholder="Hora" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 13 }, (_, i) => i + 8).map(h => (
-                    <SelectItem key={h} value={h.toString()} className="text-sm">
-                      {h}:00
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex space-x-1">
+                <Select value={hour.toString()} onValueChange={(value) => setHour(parseInt(value))}>
+                  <SelectTrigger id="hour" className="h-8 text-sm flex-1">
+                    <SelectValue placeholder="Hora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 13 }, (_, i) => i + 8).map(h => (
+                      <SelectItem key={h} value={h.toString()} className="text-sm">
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="flex items-center">:</span>
+                <Select value={minute.toString()} onValueChange={(value) => setMinute(parseInt(value))}>
+                  <SelectTrigger id="minute" className="h-8 text-sm flex-1">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0" className="text-sm">00</SelectItem>
+                    <SelectItem value="30" className="text-sm">30</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="space-y-1">
@@ -209,7 +226,10 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
               <Label htmlFor="student" className="text-xs">Aluno</Label>
               <Select
                 value={studentId}
-                onValueChange={setStudentId}
+                onValueChange={(value) => {
+                  console.log("Selected student ID:", value);
+                  setStudentId(value);
+                }}
               >
                 <SelectTrigger id="student" className="h-8 text-sm">
                   <SelectValue placeholder="Selecione um aluno" />

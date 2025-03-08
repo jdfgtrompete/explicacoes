@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarClock, AlertCircle } from 'lucide-react';
 import { Student } from '@/types';
 import { Button } from '@/components/ui/button';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, setHours } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { WeeklyScheduleView } from '@/components/WeeklyScheduleView';
@@ -51,6 +52,7 @@ const WeeklySchedule = () => {
         return;
       }
       
+      // Fetch students first
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -64,8 +66,9 @@ const WeeklySchedule = () => {
       console.log("Fetched students:", studentsData);
       setStudents(studentsData || []);
       
+      // Then fetch sessions for the current week
       const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-      const weekEndStr = format(endOfWeek(weekStart, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
       
       console.log("Fetching sessions from", weekStartStr, "to", weekEndStr);
       
@@ -115,9 +118,8 @@ const WeeklySchedule = () => {
   };
   
   const handleOpenAddDialog = (day: Date, hour: number) => {
-    const selectedDateTime = new Date(day);
-    selectedDateTime.setHours(hour, 0, 0, 0);
-    setSelectedDate(selectedDateTime);
+    console.log("Opening dialog for day:", day, "hour:", hour);
+    setSelectedDate(day);
     setSelectedHour(hour);
     setIsAddDialogOpen(true);
   };
@@ -134,6 +136,8 @@ const WeeklySchedule = () => {
         toast.error('Você precisa estar autenticado para adicionar aulas');
         return;
       }
+      
+      console.log("Adding session with full data:", sessionData);
       
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
       console.log("Adding session with date:", dateWithTime);
@@ -170,6 +174,7 @@ const WeeklySchedule = () => {
       toast.success('Aula adicionada com sucesso!');
       setIsAddDialogOpen(false);
       
+      // Refresh data to ensure everything is up-to-date
       fetchData();
     } catch (error: any) {
       console.error('Erro ao adicionar aula:', error);
@@ -274,6 +279,19 @@ const WeeklySchedule = () => {
             <div className="flex justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
+          ) : students.length === 0 ? (
+            <div className="text-center py-10 text-indigo-400">
+              <CalendarClock size={40} className="mx-auto mb-2 opacity-50" />
+              <p>Primeiro adicione alunos antes de agendar aulas</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="mt-2"
+                onClick={() => navigate('/')}
+              >
+                Adicionar alunos
+              </Button>
+            </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-10 text-indigo-400">
               <CalendarClock size={40} className="mx-auto mb-2 opacity-50" />
@@ -291,7 +309,7 @@ const WeeklySchedule = () => {
               </Button>
             </div>
           ) : (
-            <div className="h-[calc(100vh-170px)]">
+            <div className="h-[calc(100vh-200px)]">
               <WeeklyScheduleView 
                 sessions={sessions} 
                 students={students}
