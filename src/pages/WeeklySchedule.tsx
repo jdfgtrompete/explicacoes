@@ -79,7 +79,7 @@ const WeeklySchedule = () => {
   
   return (
     <div className="container mx-auto py-3 px-2">
-      <ScheduleHeader title="Agenda Semanal" />
+      <ScheduleHeader title="Agenda Semanal" onRefresh={fetchSessions} />
       
       {error ? (
         <ErrorDisplay error={error} onRetry={handleRetry} />

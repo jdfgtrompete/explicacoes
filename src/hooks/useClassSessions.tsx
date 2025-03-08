@@ -130,7 +130,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
     }
   };
   
-  const deleteSession = async (sessionId: string) => {
+  const deleteSession = async (sessionId: string): Promise<void> => {
     try {
       const { error } = await supabase
         .from('class_sessions')
@@ -141,11 +141,9 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
       
       setSessions(prev => prev.filter(session => session.id !== sessionId));
       toast.success('Aula removida com sucesso!');
-      return true;
     } catch (error: any) {
       console.error('Erro ao remover aula:', error);
       toast.error(`Erro ao remover aula: ${error.message || 'Falha na conexão'}`);
-      return false;
     }
   };
   

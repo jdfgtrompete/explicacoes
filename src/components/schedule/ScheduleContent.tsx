@@ -3,7 +3,7 @@ import React from 'react';
 import { CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Student } from '@/types';
-import { WeeklyScheduleView } from '@/components/WeeklyScheduleView';
+import { WeeklyScheduleView } from '@/components/schedule/WeeklyScheduleView';
 
 interface ClassSession {
   id: string;
@@ -78,7 +78,7 @@ export const ScheduleContent: React.FC<ScheduleContentProps> = ({
   }
   
   return (
-    <div className="h-[calc(100vh-200px)]">
+    <div className="h-[calc(100vh-200px)] overflow-auto">
       <WeeklyScheduleView 
         sessions={sessions} 
         students={students}
