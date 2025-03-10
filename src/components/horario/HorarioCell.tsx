@@ -32,7 +32,7 @@ export const HorarioCell: React.FC<HorarioCellProps> = ({
       const studentIds = studentId.split(',');
       const studentNames = studentIds.map(id => {
         const student = students.find(s => s.id === id.trim());
-        return student ? student.name.split(' ')[0] : 'Aluno Desconhecido';
+        return student ? student.name.split(' ')[0] : 'Desconhecido';
       });
       return studentNames.join(', ');
     }

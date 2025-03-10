@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { toast } from 'sonner';
 
 interface ClassSession {
@@ -20,11 +20,8 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const weekStart = new Date(currentWeek);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-  
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
+  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 }); // Sunday
   
   const fetchSessions = async () => {
     setLoading(true);
@@ -86,7 +83,17 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         return false;
       }
       
+      // Format date with time for proper storage
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
+      
+      console.log("Adding session with data:", {
+        student_id: sessionData.studentId,
+        user_id: userId,
+        date: dateWithTime,
+        duration: sessionData.duration,
+        type: sessionData.type,
+        notes: sessionData.notes || null
+      });
       
       const { data, error } = await supabase
         .from('class_sessions')
@@ -104,6 +111,8 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         console.error("Error creating session:", error);
         throw error;
       }
+      
+      console.log("Session added successfully:", data);
       
       if (data && data[0]) {
         const newSession: ClassSession = {

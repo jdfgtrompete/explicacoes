@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { startOfWeek, addWeeks, subWeeks, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,6 +34,10 @@ const Horarios = () => {
   } = useClassSessions(user?.id, currentWeek);
   
   const loading = studentsLoading || sessionsLoading;
+  
+  useEffect(() => {
+    console.log("Current sessions:", sessions);
+  }, [sessions]);
   
   const handlePreviousWeek = () => {
     setCurrentWeek(subWeeks(currentWeek, 1));

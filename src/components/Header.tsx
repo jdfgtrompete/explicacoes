@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
-import { LogOut, CalendarClock, ClipboardList } from 'lucide-react';
+import { LogOut, CalendarClock } from 'lucide-react';
 
 export const Header = () => {
   const { logout } = useAuth();
@@ -25,17 +25,8 @@ export const Header = () => {
             className="flex items-center gap-1"
             size="sm"
           >
-            <ClipboardList size={16} />
-            Horários
-          </Button>
-          <Button
-            onClick={() => navigate('/agenda')}
-            variant={location.pathname === '/agenda' ? 'default' : 'outline'}
-            className="flex items-center gap-1"
-            size="sm"
-          >
             <CalendarClock size={16} />
-            Agenda
+            Horários
           </Button>
           <Button
             onClick={handleLogout}
