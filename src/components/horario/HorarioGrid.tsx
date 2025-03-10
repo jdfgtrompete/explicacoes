@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { format, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,7 +42,6 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
     sessionId?: string;
   } | null>(null);
   
-  // Create array with weekdays
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = addDays(weekStart, i);
     return {
@@ -52,15 +50,12 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
     };
   });
   
-  // Generate time slots (8:00 to 20:00)
   const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8);
   
-  // Find session at specific day and hour
   const findSession = (day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     
     return sessions.find(session => {
-      // Parse the session date string to a Date object
       const sessionDate = session.date.includes('T') 
         ? parseISO(session.date)
         : parseISO(`${session.date}T00:00:00`);
@@ -68,8 +63,7 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
       const sessionHour = sessionDate.getHours();
       const sessionDayStr = format(sessionDate, 'yyyy-MM-dd');
       
-      // Check if the day matches and the hour matches
-      return sessionDayStr === dayStr && (sessionHour === hour || sessionHour === 0);
+      return sessionDayStr === dayStr && sessionHour === hour;
     });
   };
   
@@ -118,7 +112,6 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
   
   return (
     <div className="relative overflow-auto">
-      {/* Header row with days */}
       <div className="grid grid-cols-8 border-b sticky top-0 z-10 bg-white">
         <div className="p-2 text-center font-medium bg-blue-50 border-r">
           Hora
@@ -138,16 +131,13 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
         ))}
       </div>
       
-      {/* Time grid */}
       <div className="grid grid-cols-8 border-b">
         {timeSlots.map((hour) => (
           <React.Fragment key={`row-${hour}`}>
-            {/* Hour column */}
             <div className="p-2 text-center text-sm border-r bg-blue-50">
               {hour}:00
             </div>
             
-            {/* Day cells */}
             {weekDays.map((day, dayIndex) => {
               const session = findSession(day.date, hour);
               
@@ -164,7 +154,6 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
         ))}
       </div>
       
-      {/* Session Popover */}
       {selectedCell && (
         <HorarioSessionPopover
           open={selectedCell !== null}

@@ -83,7 +83,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         return false;
       }
       
-      // Format date with time for proper storage
+      // Ensure we're getting the time part included in the database (fixed)
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
       
       console.log("Adding session with data:", {
