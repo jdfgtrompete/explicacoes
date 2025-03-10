@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
 import { toast } from 'sonner';
@@ -60,11 +60,16 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
     const dayStr = format(day, 'yyyy-MM-dd');
     
     return sessions.find(session => {
-      const sessionDate = new Date(session.date);
+      // Parse the session date string to a Date object
+      const sessionDate = session.date.includes('T') 
+        ? parseISO(session.date)
+        : parseISO(`${session.date}T00:00:00`);
+      
       const sessionHour = sessionDate.getHours();
       const sessionDayStr = format(sessionDate, 'yyyy-MM-dd');
       
-      return sessionDayStr === dayStr && sessionHour === hour;
+      // Check if the day matches and the hour matches
+      return sessionDayStr === dayStr && (sessionHour === hour || sessionHour === 0);
     });
   };
   
