@@ -7,8 +7,6 @@ import { AddScheduleEntryDialog } from '@/components/AddScheduleEntryDialog';
 import { ScheduleHeader } from '@/components/schedule/ScheduleHeader';
 import { WeekNavigation } from '@/components/schedule/WeekNavigation';
 import { ScheduleContent } from '@/components/schedule/ScheduleContent';
-import { AuthErrorDisplay } from '@/components/schedule/AuthErrorDisplay';
-import { ErrorDisplay } from '@/components/schedule/ErrorDisplay';
 import { useClassSessions } from '@/hooks/useClassSessions';
 import { useStudents } from '@/hooks/useStudents';
 
@@ -45,14 +43,9 @@ const WeeklySchedule = () => {
   };
   
   const handleOpenAddDialog = (day: Date, hour: number) => {
-    console.log("Opening dialog for day:", day, "hour:", hour);
     setSelectedDate(day);
     setSelectedHour(hour);
     setIsAddDialogOpen(true);
-  };
-  
-  const handleRetry = () => {
-    fetchSessions();
   };
   
   const handleAddSession = async (sessionData: {
@@ -74,7 +67,17 @@ const WeeklySchedule = () => {
   };
   
   if (!user && !loading) {
-    return <AuthErrorDisplay onLogin={() => navigate('/auth')} />;
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-500 mb-2">Você precisa estar autenticado para acessar esta página</p>
+        <button 
+          onClick={() => navigate('/auth')}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Fazer login
+        </button>
+      </div>
+    );
   }
   
   return (
@@ -82,7 +85,16 @@ const WeeklySchedule = () => {
       <ScheduleHeader title="Agenda Semanal" onRefresh={fetchSessions} />
       
       {error ? (
-        <ErrorDisplay error={error} onRetry={handleRetry} />
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 my-4">
+          <h3 className="text-red-800 font-medium mb-2">Erro ao carregar dados</h3>
+          <p className="text-red-600 text-sm">{error}</p>
+          <button 
+            onClick={fetchSessions}
+            className="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
+          >
+            Tentar novamente
+          </button>
+        </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md p-3">
           <WeekNavigation 

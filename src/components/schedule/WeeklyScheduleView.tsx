@@ -20,7 +20,7 @@ interface WeeklyScheduleViewProps {
   sessions: ClassSession[];
   students: Student[];
   weekStart: Date;
-  onDeleteSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => Promise<void>;
   onAddSession: (day: Date, hour: number) => void;
 }
 
@@ -41,14 +41,9 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
     const day = addDays(weekStart, i);
     return {
       date: day,
-      dayName: format(day, 'EEE', { locale: ptBR }),
-      dayNumber: format(day, 'd', { locale: ptBR }),
       dateStr: format(day, 'yyyy-MM-dd')
     };
   });
-  
-  console.log("Rendering with sessions:", sessions);
-  console.log("Students available:", students);
   
   // Generate time slots (8:00 to 20:00, every 30 minutes)
   const timeSlots = [];
@@ -76,7 +71,7 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
       </div>
       
       {/* Time grid */}
-      <div className="relative bg-white">
+      <div className="relative">
         {/* Time slots and horizontal lines */}
         {timeSlots.map((timeSlot, index) => (
           <div 
@@ -87,10 +82,11 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
             <div className="text-xs text-gray-500 p-1 border-r text-center">
               {timeSlot}
             </div>
+            
             {/* Empty day cells */}
             {Array.from({ length: 7 }, (_, dayIndex) => (
               <TimeSlot 
-                key={`cell-${index}-${dayIndex}`}
+                key={`cell-${dayIndex}`}
                 time={timeSlot}
                 dayIndex={dayIndex}
                 onAddSession={handleAddSession}
@@ -104,7 +100,6 @@ export const WeeklyScheduleView: React.FC<WeeklyScheduleViewProps> = ({
           <SessionDisplay
             key={session.id}
             session={session}
-            dayIndex={0} // This will be recalculated inside the component
             weekDays={weekDays}
             students={students}
             onDeleteSession={onDeleteSession}

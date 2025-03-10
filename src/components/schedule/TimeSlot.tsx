@@ -9,11 +9,10 @@ interface TimeSlotProps {
 
 export const TimeSlot: React.FC<TimeSlotProps> = ({ time, dayIndex, onAddSession }) => {
   const hour = parseInt(time.split(':')[0]);
-  const minute = parseInt(time.split(':')[1]);
   
   return (
     <div 
-      className="border-r relative border-gray-100"
+      className="border-r border-gray-200 h-full hover:bg-blue-50 cursor-pointer transition-colors"
       onClick={() => onAddSession(dayIndex, hour)}
     />
   );

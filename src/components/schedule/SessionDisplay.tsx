@@ -15,74 +15,58 @@ interface SessionDisplayProps {
     type: 'individual' | 'group';
     notes: string | null;
   };
-  dayIndex: number;
   weekDays: {
     date: Date;
-    dayName: string;
-    dayNumber: string;
     dateStr: string;
   }[];
   students: Student[];
-  onDeleteSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => Promise<void>;
   hoursStart: number;
   cellHeight: number;
 }
 
 export const SessionDisplay: React.FC<SessionDisplayProps> = ({
   session,
-  dayIndex,
   weekDays,
   students,
   onDeleteSession,
   hoursStart,
   cellHeight
 }) => {
-  // Parse session date and time
-  const parseSessionDateTime = (dateStr: string): Date => {
-    try {
-      return new Date(dateStr);
-    } catch (e) {
-      console.error("Error parsing datetime:", dateStr, e);
-      return new Date();
-    }
-  };
+  // Parse session date
+  const sessionDate = new Date(session.date);
+  
+  // Find which day column this session belongs to
+  const dayIndex = weekDays.findIndex(day => 
+    isSameDay(day.date, sessionDate)
+  );
+  
+  if (dayIndex === -1) return null; // Skip if not in current week
   
   // Format time from date string
-  const formatTime = (dateStr: string): string => {
-    try {
-      const date = new Date(dateStr);
-      return format(date, 'HH:mm');
-    } catch (e) {
-      console.error("Error formatting time:", dateStr, e);
-      return "00:00";
-    }
+  const formatTime = (date: Date): string => {
+    return format(date, 'HH:mm');
   };
   
   // Get student name by ID
   const getStudentName = (studentId: string): string => {
     if (!studentId) return 'Aluno Desconhecido';
     
-    console.log("Looking for student with ID:", studentId);
-    const student = students.find(s => s.id === studentId);
-    console.log("Found student:", student);
-    return student ? student.name : 'Aluno Desconhecido';
-  };
-
-  // Get list of students for a group session
-  const getSessionStudents = (sessionStudentId: string): string[] => {
-    if (!sessionStudentId) return ['Aluno Desconhecido'];
-    
-    if (!sessionStudentId.includes(',')) {
-      return [getStudentName(sessionStudentId)];
+    if (studentId.includes(',')) {
+      const studentIds = studentId.split(',');
+      const studentNames = studentIds.map(id => {
+        const student = students.find(s => s.id === id.trim());
+        return student ? student.name : 'Aluno Desconhecido';
+      });
+      return studentNames.join(', ');
     }
     
-    const studentIds = sessionStudentId.split(',');
-    return studentIds.map(id => getStudentName(id.trim()));
+    const student = students.find(s => s.id === studentId);
+    return student ? student.name : 'Aluno Desconhecido';
   };
   
-  // Calculate position for a session
+  // Calculate position for the session
   const getSessionStyle = () => {
-    const sessionDate = parseSessionDateTime(session.date);
     const sessionHour = sessionDate.getHours();
     const sessionMinute = sessionDate.getMinutes();
     
@@ -95,7 +79,7 @@ export const SessionDisplay: React.FC<SessionDisplayProps> = ({
     const heightCells = session.duration * 2; // Each hour is 2 cells
     const heightValue = heightCells * cellHeight;
     
-    // Column width calculation (7 days, each taking equal space)
+    // Column width calculation (each takes equal space)
     const leftPosition = (dayIndex * (100 / 7)) + '%';
     const widthValue = (100 / 7) - 0.5 + '%'; // Subtract a small amount for spacing
     
@@ -116,20 +100,7 @@ export const SessionDisplay: React.FC<SessionDisplayProps> = ({
       : 'bg-green-100 border-green-400 hover:bg-green-200';
   };
   
-  const sessionDate = parseSessionDateTime(session.date);
-  
-  // Find which day column this session belongs to
-  const validDayIndex = weekDays.findIndex(day => 
-    isSameDay(day.date, sessionDate)
-  );
-  
-  if (validDayIndex === -1) return null; // Skip if not in current week
-  
-  const studentName = session.type === 'individual' 
-    ? getStudentName(session.student_id)
-    : getSessionStudents(session.student_id).join(', ');
-    
-  console.log("Rendering session for student:", studentName);
+  const studentName = getStudentName(session.student_id);
   
   return (
     <div 
@@ -159,7 +130,7 @@ export const SessionDisplay: React.FC<SessionDisplayProps> = ({
       
       <div className="flex items-center gap-1 text-[10px] text-gray-600 mt-1">
         <Clock size={10} />
-        <span>{formatTime(session.date)}</span>
+        <span>{formatTime(sessionDate)}</span>
         <span className="mx-1">•</span>
         <span>{session.duration}h</span>
       </div>

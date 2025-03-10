@@ -86,11 +86,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         return false;
       }
       
-      console.log("Adding session with full data:", sessionData);
-      
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
-      console.log("Adding session with date:", dateWithTime);
-      console.log("Adding session for student:", sessionData.studentId);
       
       const { data, error } = await supabase
         .from('class_sessions')
@@ -108,8 +104,6 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         console.error("Error creating session:", error);
         throw error;
       }
-      
-      console.log("Created session:", data);
       
       if (data && data[0]) {
         const newSession: ClassSession = {
