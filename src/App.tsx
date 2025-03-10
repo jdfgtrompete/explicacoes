@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import WeeklySchedule from "./pages/WeeklySchedule";
+import Horarios from "./pages/Horarios";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,11 @@ const App = () => (
             <Route path="/agenda" element={
               <ProtectedRoute>
                 <WeeklySchedule />
+              </ProtectedRoute>
+            } />
+            <Route path="/horarios" element={
+              <ProtectedRoute>
+                <Horarios />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
