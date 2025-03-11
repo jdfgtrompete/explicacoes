@@ -4,17 +4,39 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
 import { LogOut, Calendar } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from './ui/use-toast';
 
 export const Header = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const handleGoogleCalendar = () => {
-    window.open('https://calendar.google.com/', '_blank');
+  const handleGoogleCalendar = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-calendar', {
+        body: { action: 'getAuthUrl' }
+      });
+
+      if (error) throw error;
+
+      // Store the state in localStorage to verify when the user returns
+      localStorage.setItem('googleCalendarAuthPending', 'true');
+      
+      // Redirect to Google's authorization page
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Error initiating Google Calendar auth:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível conectar ao Google Calendar. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
