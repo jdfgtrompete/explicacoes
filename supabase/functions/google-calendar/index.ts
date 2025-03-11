@@ -1,8 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
+const CLIENT_ID = "544470972050-idagauarls9tpb8ae2gngoa2c05q7onn.apps.googleusercontent.com";
+const CLIENT_SECRET = "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";
 const REDIRECT_URI = 'http://localhost:5173/auth/callback';
 
 const corsHeaders = {
@@ -47,6 +47,16 @@ serve(async (req) => {
       });
 
       const tokenData = await tokenResponse.json();
+      console.log('Token response:', tokenData);
+      
+      if (tokenData.error) {
+        console.error('Error in token response:', tokenData);
+        return new Response(JSON.stringify(tokenData), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       return new Response(JSON.stringify(tokenData), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
