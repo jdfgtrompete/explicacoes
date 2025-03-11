@@ -9,7 +9,6 @@ import { useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import Horarios from "./pages/Horarios";
 
 const queryClient = new QueryClient();
 
@@ -42,13 +41,6 @@ const App = () => (
                 <Index />
               </ProtectedRoute>
             } />
-            <Route path="/horarios" element={
-              <ProtectedRoute>
-                <Horarios />
-              </ProtectedRoute>
-            } />
-            {/* Redirect /agenda to /horarios */}
-            <Route path="/agenda" element={<Navigate to="/horarios" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -1,17 +1,20 @@
 
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
-import { LogOut, CalendarClock } from 'lucide-react';
+import { LogOut, Calendar } from 'lucide-react';
 
 export const Header = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleGoogleCalendar = () => {
+    window.open('https://calendar.google.com/', '_blank');
   };
 
   return (
@@ -20,13 +23,13 @@ export const Header = () => {
         <h1 className="text-xl font-bold text-indigo-900">Controle de Explicações</h1>
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => navigate('/horarios')}
-            variant={location.pathname === '/horarios' ? 'default' : 'outline'}
+            onClick={handleGoogleCalendar}
+            variant="outline"
             className="flex items-center gap-1"
             size="sm"
           >
-            <CalendarClock size={16} />
-            Horários
+            <Calendar size={16} />
+            Google Calendar
           </Button>
           <Button
             onClick={handleLogout}
