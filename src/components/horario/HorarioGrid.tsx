@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { format, addDays, parseISO, setHours } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
 import { toast } from 'sonner';
@@ -53,40 +53,38 @@ export const HorarioGrid: React.FC<HorarioGridProps> = ({
   
   const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8);
   
-  const [displayedSessions, setDisplayedSessions] = useState<{[key: string]: ClassSession}>({});
+  const [sessionsByCell, setSessionsByCell] = useState<Record<string, ClassSession>>({});
   
   // Process sessions for display
   useEffect(() => {
-    const sessionMap: {[key: string]: ClassSession} = {};
+    const sessionsMap: Record<string, ClassSession> = {};
     
     sessions.forEach(session => {
       try {
         // Parse the session date
-        const sessionDate = session.date.includes('T') 
-          ? parseISO(session.date)
-          : parseISO(`${session.date}T00:00:00`);
+        const sessionDate = parseISO(session.date);
         
-        // Get date and hour
+        // Get date string and hour
         const dateStr = format(sessionDate, 'yyyy-MM-dd');
-        const hour = sessionDate.getHours() || parseInt(session.date.split('T')[1]?.split(':')[0] || '0', 10);
+        const hour = sessionDate.getHours();
         
         // Create a key for this cell
         const cellKey = `${dateStr}-${hour}`;
-        sessionMap[cellKey] = session;
+        sessionsMap[cellKey] = session;
         
-        console.log(`Processed session for ${dateStr} at ${hour}:00`, session);
+        console.log(`Processed session for ${dateStr} at ${hour}:00:`, session);
       } catch (error) {
         console.error('Error processing session:', session, error);
       }
     });
     
-    setDisplayedSessions(sessionMap);
+    setSessionsByCell(sessionsMap);
   }, [sessions]);
   
   const findSession = (day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     const cellKey = `${dayStr}-${hour}`;
-    return displayedSessions[cellKey];
+    return sessionsByCell[cellKey];
   };
   
   const handleCellClick = (day: Date, hour: number) => {

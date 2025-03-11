@@ -5,17 +5,19 @@ import { startOfWeek, addWeeks, subWeeks, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { CalendarClock, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, RefreshCw, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents } from '@/hooks/useStudents';
 import { useClassSessions } from '@/hooks/useClassSessions';
 import { Header } from '@/components/Header';
 import { HorarioGrid } from '@/components/horario/HorarioGrid';
+import { HorarioSessionPopover } from '@/components/horario/HorarioSessionPopover';
 
 const Horarios = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
+  const [isAddingSession, setIsAddingSession] = useState(false);
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const formattedWeekStart = format(weekStart, "d 'de' MMMM", { locale: ptBR });
@@ -52,6 +54,31 @@ const Horarios = () => {
     fetchSessions();
   };
   
+  const handleOpenAddSession = () => {
+    setIsAddingSession(true);
+  };
+  
+  const handleAddSession = async (sessionData: {
+    studentId: string;
+    duration: number;
+    type: 'individual' | 'group';
+    notes: string;
+  }) => {
+    // Default to today's date at 8:00 AM
+    const today = new Date();
+    today.setHours(8, 0, 0, 0);
+    
+    const success = await addSession({
+      ...sessionData,
+      date: today
+    });
+    
+    if (success) {
+      setIsAddingSession(false);
+      fetchSessions(); // Refresh to ensure the new session is displayed
+    }
+  };
+  
   if (!user && !loading) {
     return (
       <div className="text-center py-8">
@@ -83,6 +110,16 @@ const Horarios = () => {
             >
               <RefreshCw size={14} />
               Atualizar
+            </Button>
+            
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={handleOpenAddSession}
+              className="flex items-center gap-1"
+            >
+              <PlusCircle size={14} />
+              Adicionar Aula
             </Button>
           </div>
         </div>
@@ -135,6 +172,18 @@ const Horarios = () => {
           )}
         </div>
       </div>
+      
+      {isAddingSession && (
+        <HorarioSessionPopover 
+          open={isAddingSession}
+          onClose={() => setIsAddingSession(false)}
+          day={new Date()}
+          hour={8}
+          students={students}
+          onAddSession={handleAddSession}
+          onDeleteSession={async () => {}}
+        />
+      )}
     </div>
   );
 };

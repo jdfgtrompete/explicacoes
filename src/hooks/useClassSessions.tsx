@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 interface ClassSession {
@@ -53,10 +53,21 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
       
       console.log("Fetched sessions:", sessionsData);
       
-      const typedSessions = (sessionsData || []).map(session => ({
-        ...session,
-        type: session.type === 'group' ? 'group' : 'individual'
-      })) as ClassSession[];
+      // Ensure sessions have the correct format with time information
+      const typedSessions = (sessionsData || []).map(session => {
+        let sessionDate = session.date;
+        
+        // Ensure date has time information
+        if (!sessionDate.includes('T')) {
+          sessionDate = `${sessionDate}T00:00:00`;
+        }
+        
+        return {
+          ...session,
+          date: sessionDate,
+          type: session.type === 'group' ? 'group' : 'individual'
+        };
+      }) as ClassSession[];
       
       setSessions(typedSessions);
       setLoading(false);
@@ -83,7 +94,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         return false;
       }
       
-      // Ensure correct time format with hours included
+      // Format date with time information
       const dateWithTime = format(sessionData.date, "yyyy-MM-dd'T'HH:mm:ss");
       
       console.log("Adding session with data:", {
@@ -121,6 +132,7 @@ export const useClassSessions = (userId: string | undefined, currentWeek: Date) 
         };
         
         setSessions(prev => [...prev, newSession]);
+        await fetchSessions(); // Refresh sessions to ensure correct display
         toast.success('Aula adicionada com sucesso!');
         return true;
       }
