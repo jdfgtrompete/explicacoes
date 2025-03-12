@@ -18,12 +18,25 @@ export const Header = () => {
 
   const handleGoogleCalendar = async () => {
     try {
+      // Clear any previous auth attempt
+      localStorage.removeItem('googleCalendarAuthPending');
+      
       const { data, error } = await supabase.functions.invoke('google-calendar', {
         body: { action: 'getAuthUrl' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error getting auth URL:', error);
+        throw error;
+      }
 
+      if (!data || !data.url) {
+        console.error('No URL returned from function:', data);
+        throw new Error('URL de autenticação não disponível');
+      }
+
+      console.log('Received auth URL:', data.url);
+      
       // Store the state in localStorage to verify when the user returns
       localStorage.setItem('googleCalendarAuthPending', 'true');
       

@@ -17,21 +17,26 @@ serve(async (req) => {
 
   try {
     const { action, code } = await req.json();
+    console.log(`Received request with action: ${action}, code: ${code ? 'present' : 'not present'}`);
 
     if (action === 'getAuthUrl') {
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${CLIENT_ID}&` +
-        `redirect_uri=${REDIRECT_URI}&` +
+        `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
         `response_type=code&` +
         `scope=https://www.googleapis.com/auth/calendar.events&` +
-        `access_type=offline`;
+        `access_type=offline&` +
+        `prompt=consent`;
 
+      console.log(`Generated auth URL: ${authUrl}`);
       return new Response(JSON.stringify({ url: authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (action === 'getToken' && code) {
+      console.log(`Attempting to exchange code for token...`);
+      
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
