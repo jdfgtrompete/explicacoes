@@ -13,10 +13,13 @@ export const GoogleCalendarCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Get the authorization code from URL parameters
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
       const errorParam = params.get('error');
-      const authPending = localStorage.getItem('googleCalendarAuthPending');
+      
+      console.log("Callback received. Code:", code ? "present" : "not present");
+      console.log("Error param:", errorParam);
 
       if (errorParam) {
         console.error('Error returned from Google:', errorParam);
@@ -32,13 +35,6 @@ export const GoogleCalendarCallback = () => {
         return;
       }
 
-      if (!authPending) {
-        console.error('No auth pending flag in localStorage');
-        setError('Sessão de autenticação expirada ou inválida');
-        setLoading(false);
-        return;
-      }
-
       try {
         console.log('Exchanging code for token...');
         const { data, error } = await supabase.functions.invoke('google-calendar', {
@@ -50,7 +46,17 @@ export const GoogleCalendarCallback = () => {
           throw new Error(error.message || 'Erro ao obter token');
         }
 
-        if (!data || !data.access_token) {
+        if (!data) {
+          console.error('No data in response');
+          throw new Error('Resposta vazia do servidor');
+        }
+
+        if (data.error) {
+          console.error('Error in response data:', data.error);
+          throw new Error(data.error_description || data.error);
+        }
+
+        if (!data.access_token) {
           console.error('No access token in response:', data);
           throw new Error('Token de acesso não recebido');
         }

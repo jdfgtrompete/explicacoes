@@ -27,12 +27,22 @@ export const Header = () => {
 
       if (error) {
         console.error('Error getting auth URL:', error);
-        throw error;
+        toast({
+          title: "Erro",
+          description: "Não foi possível conectar ao Google Calendar. Erro na chamada da função.",
+          variant: "destructive",
+        });
+        return;
       }
 
       if (!data || !data.url) {
         console.error('No URL returned from function:', data);
-        throw new Error('URL de autenticação não disponível');
+        toast({
+          title: "Erro",
+          description: "URL de autenticação não disponível",
+          variant: "destructive",
+        });
+        return;
       }
 
       console.log('Received auth URL:', data.url);
@@ -41,7 +51,7 @@ export const Header = () => {
       localStorage.setItem('googleCalendarAuthPending', 'true');
       
       // Redirect to Google's authorization page
-      window.location.href = data.url;
+      window.open(data.url, '_blank');
     } catch (error) {
       console.error('Error initiating Google Calendar auth:', error);
       toast({
