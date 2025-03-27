@@ -3,84 +3,33 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
-import { LogOut, Calendar } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from './ui/use-toast';
+import { LogOut, CalendarClock } from 'lucide-react';
 
 export const Header = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleLogout = async () => {
     await logout();
-  };
-
-  const handleGoogleCalendar = async () => {
-    try {
-      // Clear any previous auth attempt
-      localStorage.removeItem('googleCalendarAuthPending');
-      
-      const { data, error } = await supabase.functions.invoke('google-calendar', {
-        body: { action: 'getAuthUrl' }
-      });
-
-      if (error) {
-        console.error('Error getting auth URL:', error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível conectar ao Google Calendar. Erro na chamada da função.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!data || !data.url) {
-        console.error('No URL returned from function:', data);
-        toast({
-          title: "Erro",
-          description: "URL de autenticação não disponível",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Received auth URL:', data.url);
-      
-      // Store the state in localStorage to verify when the user returns
-      localStorage.setItem('googleCalendarAuthPending', 'true');
-      
-      // Redirect to Google's authorization page
-      window.open(data.url, '_blank');
-    } catch (error) {
-      console.error('Error initiating Google Calendar auth:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível conectar ao Google Calendar. Tente novamente.",
-        variant: "destructive",
-      });
-    }
   };
 
   return (
     <div className="border-b bg-white shadow-sm">
       <div className="container mx-auto flex items-center justify-between py-4">
         <h1 className="text-xl font-bold text-indigo-900">Controle de Explicações</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <Button
-            onClick={handleGoogleCalendar}
+            onClick={() => navigate('/agenda')}
             variant="outline"
-            className="flex items-center gap-1"
-            size="sm"
+            className="flex items-center gap-2"
           >
-            <Calendar size={16} />
-            Google Calendar
+            <CalendarClock size={16} />
+            Agenda Semanal
           </Button>
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="flex items-center gap-1"
-            size="sm"
+            className="flex items-center gap-2"
           >
             <LogOut size={16} />
             Sair

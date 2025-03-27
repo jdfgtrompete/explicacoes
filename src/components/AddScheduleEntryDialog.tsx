@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Student } from '@/types';
-import { CalendarClock } from 'lucide-react';
+import { Clock, CalendarClock, User, Users } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,9 +15,6 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -23,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AddScheduleEntryDialogProps {
   open: boolean;
@@ -56,6 +56,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
   const [type, setType] = useState<'individual' | 'group'>('individual');
   const [notes, setNotes] = useState<string>('');
   
+  console.log("Dialog opened with students:", students);
+  
   // Reset form when dialog is opened with a selected date and hour
   useEffect(() => {
     if (open && selectedDate) {
@@ -86,9 +88,13 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
       return;
     }
     
+    console.log("Selected student ID:", finalStudentId);
+    
     // Add time to the date
     const dateTime = new Date(date);
     dateTime.setHours(hour, minute, 0, 0);
+    
+    console.log("Submitting with date:", dateTime, "and student ID:", finalStudentId);
     
     onAddSession({
       studentId: finalStudentId,
@@ -120,6 +126,9 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
     );
   };
 
+  // Debug student list
+  console.log("Available students:", students);
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[350px] p-4 max-h-[90vh] overflow-auto bg-white">
@@ -134,15 +143,14 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Time Selector */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="hour" className="text-xs">Hora</Label>
+              <Label htmlFor="hour" className="text-xs flex items-center">
+                <Clock size={12} className="mr-1" />
+                Hora
+              </Label>
               <div className="flex space-x-1">
-                <Select 
-                  value={hour.toString()} 
-                  onValueChange={(value) => setHour(parseInt(value))}
-                >
+                <Select value={hour.toString()} onValueChange={(value) => setHour(parseInt(value))}>
                   <SelectTrigger id="hour" className="h-8 text-sm flex-1">
                     <SelectValue placeholder="Hora" />
                   </SelectTrigger>
@@ -155,10 +163,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                   </SelectContent>
                 </Select>
                 <span className="flex items-center">:</span>
-                <Select 
-                  value={minute.toString()} 
-                  onValueChange={(value) => setMinute(parseInt(value))}
-                >
+                <Select value={minute.toString()} onValueChange={(value) => setMinute(parseInt(value))}>
                   <SelectTrigger id="minute" className="h-8 text-sm flex-1">
                     <SelectValue placeholder="Min" />
                   </SelectTrigger>
@@ -170,13 +175,12 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
               </div>
             </div>
             
-            {/* Duration Selector */}
             <div className="space-y-1">
-              <Label htmlFor="duration" className="text-xs">Duração</Label>
-              <Select 
-                value={duration.toString()} 
-                onValueChange={(value) => setDuration(parseFloat(value))}
-              >
+              <Label htmlFor="duration" className="text-xs flex items-center">
+                <Clock size={12} className="mr-1" />
+                Duração
+              </Label>
+              <Select value={duration.toString()} onValueChange={(value) => setDuration(parseFloat(value))}>
                 <SelectTrigger id="duration" className="h-8 text-sm">
                   <SelectValue placeholder="Duração" />
                 </SelectTrigger>
@@ -190,7 +194,6 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
             </div>
           </div>
           
-          {/* Class Type Selector */}
           <div className="space-y-1">
             <Label className="text-xs">Tipo de Aula</Label>
             <div className="flex space-x-2">
@@ -203,6 +206,7 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                 }}
                 className="flex-1 py-0 h-8 text-xs"
               >
+                <User size={12} className="mr-1" />
                 Individual
               </Button>
               <Button
@@ -211,62 +215,74 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
                 onClick={() => setType('group')}
                 className="flex-1 py-0 h-8 text-xs"
               >
+                <Users size={12} className="mr-1" />
                 Coletiva
               </Button>
             </div>
           </div>
           
-          {/* Student Selector (Individual) */}
-          {type === 'individual' && (
+          {type === 'individual' ? (
             <div className="space-y-1">
               <Label htmlFor="student" className="text-xs">Aluno</Label>
               <Select
                 value={studentId}
-                onValueChange={setStudentId}
+                onValueChange={(value) => {
+                  console.log("Selected student ID:", value);
+                  setStudentId(value);
+                }}
               >
                 <SelectTrigger id="student" className="h-8 text-sm">
                   <SelectValue placeholder="Selecione um aluno" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map(student => (
-                    <SelectItem key={student.id} value={student.id} className="text-sm">
-                      {student.name}
+                  {students && students.length > 0 ? (
+                    students.map(student => (
+                      <SelectItem key={student.id} value={student.id} className="text-sm">
+                        {student.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="nenhum" disabled className="text-sm">
+                      Nenhum aluno disponível
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
+              {students && students.length === 0 && (
+                <p className="text-xs text-red-500">Você precisa adicionar alunos primeiro</p>
+              )}
             </div>
-          )}
-          
-          {/* Multiple Student Selector (Group) */}
-          {type === 'group' && (
+          ) : (
             <div className="space-y-1">
               <Label className="text-xs">Alunos da Turma</Label>
               <div className="border rounded-md p-2 h-[120px] overflow-y-auto bg-blue-50/50">
-                {students.map(student => (
-                  <div key={student.id} className="flex items-center space-x-2 py-1">
-                    <Checkbox
-                      id={`student-${student.id}`}
-                      checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={() => toggleStudentSelection(student.id)}
-                      className="h-4 w-4"
-                    />
-                    <Label
-                      htmlFor={`student-${student.id}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {student.name}
-                    </Label>
-                  </div>
-                ))}
+                {students && students.length > 0 ? (
+                  students.map(student => (
+                    <div key={student.id} className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id={`student-${student.id}`}
+                        checked={selectedStudents.includes(student.id)}
+                        onCheckedChange={() => toggleStudentSelection(student.id)}
+                        className="h-4 w-4"
+                      />
+                      <Label
+                        htmlFor={`student-${student.id}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {student.name}
+                      </Label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">Nenhum aluno disponível</p>
+                )}
               </div>
-              {selectedStudents.length === 0 && (
+              {students && students.length > 0 && selectedStudents.length === 0 && (
                 <p className="text-xs text-red-500">Selecione pelo menos um aluno</p>
               )}
             </div>
           )}
           
-          {/* Notes */}
           <div className="space-y-1">
             <Label htmlFor="notes" className="text-xs">Observações</Label>
             <Textarea
@@ -292,7 +308,8 @@ export const AddScheduleEntryDialog: React.FC<AddScheduleEntryDialogProps> = ({
               className="h-8 text-xs"
               disabled={
                 (type === 'individual' && !studentId) || 
-                (type === 'group' && selectedStudents.length === 0)
+                (type === 'group' && selectedStudents.length === 0) ||
+                students.length === 0
               }
             >
               Salvar
