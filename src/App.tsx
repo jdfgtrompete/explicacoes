@@ -9,7 +9,6 @@ import { useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import WeeklySchedule from "./pages/WeeklySchedule";
 
 const queryClient = new QueryClient();
 
@@ -40,11 +39,6 @@ const App = () => (
             <Route path="/" element={
               <ProtectedRoute>
                 <Index />
-              </ProtectedRoute>
-            } />
-            <Route path="/agenda" element={
-              <ProtectedRoute>
-                <WeeklySchedule />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

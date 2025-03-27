@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -34,6 +35,7 @@ const Index = () => {
 
   const fetchData = async () => {
     try {
+      // Carregar alunos
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -41,6 +43,7 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
+      // Carregar registros semanais
       const [year, month] = currentMonth.split('-');
       const { data: recordsData, error: recordsError } = await supabase
         .from('weekly_records')
@@ -51,6 +54,7 @@ const Index = () => {
 
       if (recordsError) throw recordsError;
 
+      // Carregar taxas de alunos
       const { data: ratesData, error: ratesError } = await supabase
         .from('student_rates')
         .select('*')
@@ -62,6 +66,7 @@ const Index = () => {
       setWeeklyRecords(recordsData || []);
       setStudentRates(ratesData || []);
 
+      // Criar taxas para novos alunos se necessário
       if (studentsData) {
         for (const student of studentsData) {
           const hasRate = ratesData?.some(rate => rate.student_id === student.id);
@@ -118,6 +123,7 @@ const Index = () => {
 
       if (error) throw error;
 
+      // Criar taxa padrão para o novo aluno
       await createDefaultRate(data.id);
 
       setStudents([...students, data]);
@@ -297,6 +303,7 @@ const Index = () => {
       const existingRate = studentRates.find(rate => rate.student_id === studentId);
 
       if (!existingRate) {
+        // Criar nova taxa para o aluno
         const newRate = {
           student_id: studentId,
           user_id: user?.id,
@@ -314,8 +321,10 @@ const Index = () => {
 
         setStudentRates([...studentRates, data]);
 
+        // Atualizar também os registros existentes
         await updateExistingRecordsRates(studentId, type, value);
       } else {
+        // Atualizar taxa existente
         const updatedRate = {
           ...existingRate,
           individual_rate: type === 'individual' ? value : existingRate.individual_rate,
@@ -333,6 +342,7 @@ const Index = () => {
           rate.id === existingRate.id ? updatedRate : rate
         ));
 
+        // Atualizar também os registros existentes
         await updateExistingRecordsRates(studentId, type, value);
       }
 
@@ -410,6 +420,7 @@ const Index = () => {
     const rate = getStudentRate(studentId);
 
     const total = studentRecords.reduce((acc, record) => {
+      // Usar a taxa específica do aluno se disponível
       const individualRate = rate?.individual_rate || record.individual_rate;
       const groupRate = rate?.group_rate || record.group_rate;
       
@@ -433,7 +444,12 @@ const Index = () => {
         transition={{ duration: 0.5 }}
         className="max-w-6xl mx-auto"
       >
-        <Header />
+        <Header 
+          email={user?.email}
+          currentMonth={currentMonth}
+          setCurrentMonth={setCurrentMonth}
+          handleLogout={handleLogout}
+        />
 
         <motion.div
           initial={{ opacity: 0 }}
