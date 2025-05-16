@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,14 +7,32 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const Auth = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check Supabase connection on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // Simple health check by getting session
+        await supabase.auth.getSession();
+        setConnectionStatus('connected');
+      } catch (error) {
+        console.error("Supabase connection error:", error);
+        setConnectionStatus('error');
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   const validatePassword = (password: string) => {
     if (password.length < 6) {
@@ -78,9 +96,19 @@ const Auth = () => {
         navigate('/');
       }
     } catch (error: any) {
+      console.error("Authentication error:", error);
+      
+      // More user-friendly error messages
+      let errorMessage = error.message;
+      if (errorMessage.includes("Failed to fetch") || error.code === "NETWORK_ERROR") {
+        errorMessage = "Falha na conexão com o servidor. Verifique sua conexão de internet e tente novamente.";
+      } else if (errorMessage.includes("Invalid login credentials")) {
+        errorMessage = "Nome de usuário ou senha incorretos.";
+      }
+      
       toast({
-        title: "Erro",
-        description: error.message,
+        title: "Erro de autenticação",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -98,6 +126,15 @@ const Auth = () => {
         <h1 className="text-2xl font-semibold text-center text-indigo-900 mb-6">
           {isSignUp ? 'Criar Conta' : 'Entrar'}
         </h1>
+        
+        {connectionStatus === 'error' && (
+          <Alert className="mb-6 border-red-500 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-600">
+              Não foi possível conectar ao servidor. Verifique sua conexão de internet e recarregue a página.
+            </AlertDescription>
+          </Alert>
+        )}
         
         {isSignUp && (
           <Alert className="mb-6">
@@ -118,6 +155,7 @@ const Auth = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               placeholder="seu_usuario"
+              disabled={connectionStatus === 'error' || isLoading}
             />
           </div>
           
@@ -132,28 +170,44 @@ const Auth = () => {
               required
               placeholder="********"
               minLength={6}
+              disabled={connectionStatus === 'error' || isLoading}
             />
           </div>
 
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            disabled={connectionStatus === 'error' || isLoading}
           >
             {isLoading ? 'Carregando...' : (isSignUp ? 'Registrar' : 'Entrar')}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
-          {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
-          {' '}
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            {isSignUp ? 'Entrar' : 'Registrar'}
-          </button>
-        </p>
+        {connectionStatus !== 'error' && (
+          <p className="mt-4 text-center text-sm text-gray-600">
+            {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
+            {' '}
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-indigo-600 hover:text-indigo-800 font-medium"
+              disabled={isLoading}
+            >
+              {isSignUp ? 'Entrar' : 'Registrar'}
+            </button>
+          </p>
+        )}
+        
+        {connectionStatus === 'error' && (
+          <div className="mt-4 text-center">
+            <Button 
+              onClick={() => window.location.reload()} 
+              variant="outline"
+              className="mx-auto"
+            >
+              Tentar Novamente
+            </Button>
+          </div>
+        )}
       </motion.div>
     </div>
   );
