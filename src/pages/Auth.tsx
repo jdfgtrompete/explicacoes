@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useCustomAuth } from "@/contexts/CustomAuthContext";
 
 const Auth = () => {
   const [username, setUsername] = useState('');
@@ -17,16 +17,17 @@ const Auth = () => {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login, register } = useCustomAuth();
 
-  // Check Supabase connection on component mount
+  // Check connection on component mount
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        // Simple health check by getting session
-        await supabase.auth.getSession();
+        // Simple health check
+        await fetch(window.location.origin);
         setConnectionStatus('connected');
       } catch (error) {
-        console.error("Supabase connection error:", error);
+        console.error("Connection error:", error);
         setConnectionStatus('error');
       }
     };
@@ -68,45 +69,30 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        // Sign up - Use username as email with a proper domain
-        const { data, error } = await supabase.auth.signUp({
-          email: `${username.toLowerCase()}@lovable.dev`,
-          password,
-          options: {
-            data: { username },
-            emailRedirectTo: `${window.location.origin}/`
-          }
-        });
-
-        if (error) throw error;
-
+        await register(username, password);
         toast({
           title: "Registro bem-sucedido!",
-          description: "Sua conta foi criada. Você já pode fazer login.",
+          description: "Sua conta foi criada. Você já está logado.",
         });
-        setIsSignUp(false);
       } else {
-        // Sign in
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${username.toLowerCase()}@lovable.dev`,
-          password,
+        await login(username, password);
+        toast({
+          title: "Login bem-sucedido!",
+          description: "Bem-vindo de volta!",
         });
-
-        if (error) throw error;
-
-        navigate('/');
       }
+      navigate('/');
     } catch (error: any) {
       console.error("Authentication error:", error);
       
       // More user-friendly error messages
-      let errorMessage = error.message;
-      if (errorMessage.includes("Failed to fetch") || error.code === "NETWORK_ERROR") {
-        errorMessage = "Falha na conexão com o servidor. Verifique sua conexão de internet e tente novamente.";
-      } else if (errorMessage.includes("Invalid login credentials")) {
+      let errorMessage = error.message || "Erro desconhecido";
+      if (errorMessage.includes("Username already exists")) {
+        errorMessage = "Este nome de usuário já existe. Tente outro.";
+      } else if (errorMessage.includes("Invalid credentials")) {
         errorMessage = "Nome de usuário ou senha incorretos.";
-      } else if (errorMessage.includes("Email address")) {
-        errorMessage = "Nome de usuário inválido. Use apenas letras, números e caracteres básicos.";
+      } else if (errorMessage.includes("Failed to fetch")) {
+        errorMessage = "Falha na conexão com o servidor. Verifique sua conexão de internet e tente novamente.";
       }
       
       toast({
