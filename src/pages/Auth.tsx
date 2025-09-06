@@ -1,43 +1,24 @@
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
-import { useCustomAuth } from "@/contexts/CustomAuthContext";
+import { useSimpleAuth } from "@/contexts/SimpleAuthContext";
 
 const Auth = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login, register } = useCustomAuth();
-
-  // Check connection on component mount
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        // Simple health check
-        await fetch(window.location.origin);
-        setConnectionStatus('connected');
-      } catch (error) {
-        console.error("Connection error:", error);
-        setConnectionStatus('error');
-      }
-    };
-    
-    checkConnection();
-  }, []);
+  const { login, register } = useSimpleAuth();
 
   const validatePassword = (password: string) => {
-    if (password.length < 6) {
-      return "A senha deve ter pelo menos 6 caracteres";
+    if (password.length < 3) {
+      return "A senha deve ter pelo menos 3 caracteres";
     }
     return null;
   };
@@ -47,18 +28,17 @@ const Auth = () => {
     
     if (!username.trim()) {
       toast({
-        title: "Erro de validação",
-        description: "Por favor, insira um nome de usuário",
+        title: "Erro",
+        description: "Digite um nome de usuário",
         variant: "destructive",
       });
       return;
     }
 
-    // Validate password
     const passwordError = validatePassword(password);
     if (passwordError) {
       toast({
-        title: "Erro de validação",
+        title: "Erro",
         description: passwordError,
         variant: "destructive",
       });
@@ -68,36 +48,45 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      let success = false;
+      
       if (isSignUp) {
-        await register(username, password);
-        toast({
-          title: "Registro bem-sucedido!",
-          description: "Sua conta foi criada. Você já está logado.",
-        });
+        success = await register(username, password);
+        if (success) {
+          toast({
+            title: "Sucesso!",
+            description: "Conta criada com sucesso!",
+          });
+        } else {
+          toast({
+            title: "Erro",
+            description: "Nome de usuário já existe",
+            variant: "destructive",
+          });
+        }
       } else {
-        await login(username, password);
-        toast({
-          title: "Login bem-sucedido!",
-          description: "Bem-vindo de volta!",
-        });
-      }
-      navigate('/');
-    } catch (error: any) {
-      console.error("Authentication error:", error);
-      
-      // More user-friendly error messages
-      let errorMessage = error.message || "Erro desconhecido";
-      if (errorMessage.includes("Username already exists")) {
-        errorMessage = "Este nome de usuário já existe. Tente outro.";
-      } else if (errorMessage.includes("Invalid credentials")) {
-        errorMessage = "Nome de usuário ou senha incorretos.";
-      } else if (errorMessage.includes("Failed to fetch")) {
-        errorMessage = "Falha na conexão com o servidor. Verifique sua conexão de internet e tente novamente.";
+        success = await login(username, password);
+        if (success) {
+          toast({
+            title: "Sucesso!",
+            description: "Login realizado!",
+          });
+        } else {
+          toast({
+            title: "Erro",
+            description: "Nome de usuário ou senha incorretos",
+            variant: "destructive",
+          });
+        }
       }
       
+      if (success) {
+        navigate('/');
+      }
+    } catch (error) {
       toast({
-        title: "Erro de autenticação",
-        description: errorMessage,
+        title: "Erro",
+        description: "Algo deu errado",
         variant: "destructive",
       });
     } finally {
@@ -116,19 +105,10 @@ const Auth = () => {
           {isSignUp ? 'Criar Conta' : 'Entrar'}
         </h1>
         
-        {connectionStatus === 'error' && (
-          <Alert className="mb-6 border-red-500 bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-600">
-              Não foi possível conectar ao servidor. Verifique sua conexão de internet e recarregue a página.
-            </AlertDescription>
-          </Alert>
-        )}
-        
         {isSignUp && (
           <Alert className="mb-6">
             <AlertDescription>
-              A senha deve ter pelo menos 6 caracteres.
+              A senha deve ter pelo menos 3 caracteres.
             </AlertDescription>
           </Alert>
         )}
@@ -144,7 +124,7 @@ const Auth = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               placeholder="seu_usuario"
-              disabled={connectionStatus === 'error' || isLoading}
+              disabled={isLoading}
             />
           </div>
           
@@ -158,45 +138,31 @@ const Auth = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="********"
-              minLength={6}
-              disabled={connectionStatus === 'error' || isLoading}
+              minLength={3}
+              disabled={isLoading}
             />
           </div>
 
           <Button
             type="submit"
             className="w-full"
-            disabled={connectionStatus === 'error' || isLoading}
+            disabled={isLoading}
           >
             {isLoading ? 'Carregando...' : (isSignUp ? 'Registrar' : 'Entrar')}
           </Button>
         </form>
 
-        {connectionStatus !== 'error' && (
-          <p className="mt-4 text-center text-sm text-gray-600">
-            {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
-            {' '}
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-              disabled={isLoading}
-            >
-              {isSignUp ? 'Entrar' : 'Registrar'}
-            </button>
-          </p>
-        )}
-        
-        {connectionStatus === 'error' && (
-          <div className="mt-4 text-center">
-            <Button 
-              onClick={() => window.location.reload()} 
-              variant="outline"
-              className="mx-auto"
-            >
-              Tentar Novamente
-            </Button>
-          </div>
-        )}
+        <p className="mt-4 text-center text-sm text-gray-600">
+          {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
+          {' '}
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-indigo-600 hover:text-indigo-800 font-medium"
+            disabled={isLoading}
+          >
+            {isSignUp ? 'Entrar' : 'Registrar'}
+          </button>
+        </p>
       </motion.div>
     </div>
   );

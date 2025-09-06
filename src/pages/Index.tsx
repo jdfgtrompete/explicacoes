@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { useCustomAuth } from "@/contexts/CustomAuthContext";
+import { useSimpleAuth } from "@/contexts/SimpleAuthContext";
 import { useNavigate } from "react-router-dom";
 import { Student, WeeklyRecord, StudentRate } from '@/types';
 import { Header } from '@/components/Header';
@@ -14,7 +14,7 @@ import { StudentList } from '@/components/StudentList';
 import { TotalDisplay } from '@/components/TotalDisplay';
 
 const Index = () => {
-  const { user, logout } = useCustomAuth();
+  const { user, logout } = useSimpleAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
