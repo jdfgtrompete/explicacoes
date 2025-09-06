@@ -7,7 +7,7 @@ interface HeaderProps {
   email: string | undefined;
   currentMonth: string;
   setCurrentMonth: (month: string) => void;
-  handleLogout: () => Promise<void>;
+  handleLogout: () => void;
 }
 
 export const Header = ({ email, currentMonth, setCurrentMonth, handleLogout }: HeaderProps) => {

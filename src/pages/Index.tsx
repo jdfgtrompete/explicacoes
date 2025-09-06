@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCustomAuth } from "@/contexts/CustomAuthContext";
 import { useNavigate } from "react-router-dom";
 import { Student, WeeklyRecord, StudentRate } from '@/types';
 import { Header } from '@/components/Header';
@@ -14,7 +14,7 @@ import { StudentList } from '@/components/StudentList';
 import { TotalDisplay } from '@/components/TotalDisplay';
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, logout } = useCustomAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
@@ -24,13 +24,9 @@ const Index = () => {
     return format(new Date(), 'yyyy-MM');
   });
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/auth');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/auth');
   };
 
   const fetchData = async () => {
@@ -445,7 +441,7 @@ const Index = () => {
         className="max-w-6xl mx-auto"
       >
         <Header 
-          email={user?.email}
+          email={user?.username}
           currentMonth={currentMonth}
           setCurrentMonth={setCurrentMonth}
           handleLogout={handleLogout}
