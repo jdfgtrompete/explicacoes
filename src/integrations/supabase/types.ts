@@ -14,7 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      student_rates: {
+        Row: {
+          created_at: string
+          group_rate: number
+          id: string
+          individual_rate: number
+          student_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_rate?: number
+          id?: string
+          individual_rate?: number
+          student_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_rate?: number
+          id?: string
+          individual_rate?: number
+          student_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_rates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_records: {
+        Row: {
+          created_at: string
+          group_classes: number
+          group_rate: number
+          id: string
+          individual_classes: number
+          individual_rate: number
+          month: string
+          student_id: string
+          updated_at: string
+          user_id: string
+          week_number: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          group_classes?: number
+          group_rate?: number
+          id?: string
+          individual_classes?: number
+          individual_rate?: number
+          month: string
+          student_id: string
+          updated_at?: string
+          user_id: string
+          week_number: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          group_classes?: number
+          group_rate?: number
+          id?: string
+          individual_classes?: number
+          individual_rate?: number
+          month?: string
+          student_id?: string
+          updated_at?: string
+          user_id?: string
+          week_number?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -68,12 +68,13 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        // Sign up
+        // Sign up - Use username as email with a proper domain
         const { data, error } = await supabase.auth.signUp({
-          email: `${username.toLowerCase()}@example.com`,
+          email: `${username.toLowerCase()}@lovable.dev`,
           password,
           options: {
-            data: { username }
+            data: { username },
+            emailRedirectTo: `${window.location.origin}/`
           }
         });
 
@@ -87,7 +88,7 @@ const Auth = () => {
       } else {
         // Sign in
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${username.toLowerCase()}@example.com`,
+          email: `${username.toLowerCase()}@lovable.dev`,
           password,
         });
 
@@ -104,6 +105,8 @@ const Auth = () => {
         errorMessage = "Falha na conexão com o servidor. Verifique sua conexão de internet e tente novamente.";
       } else if (errorMessage.includes("Invalid login credentials")) {
         errorMessage = "Nome de usuário ou senha incorretos.";
+      } else if (errorMessage.includes("Email address")) {
+        errorMessage = "Nome de usuário inválido. Use apenas letras, números e caracteres básicos.";
       }
       
       toast({
